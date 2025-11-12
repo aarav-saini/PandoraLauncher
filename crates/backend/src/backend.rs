@@ -29,19 +29,19 @@ pub fn start(send: FrontendHandle, self_handle: BackendHandle, recv: Receiver<Me
     let directories = Arc::new(LauncherDirectories::new(launcher_dir));
 
     let meta = Arc::new(MetadataManager::new(http_client.clone(), runtime.handle().clone(), directories.metadata_dir.clone(), send.clone()));
-    
+
     let (watcher_tx, watcher_rx) = tokio::sync::mpsc::channel::<notify_debouncer_full::DebounceEventResult>(64);
     let watcher = notify_debouncer_full::new_debouncer(Duration::from_millis(100), None, move |event| {
         let _ = watcher_tx.blocking_send(event);
     }).unwrap();
-    
+
     let modrinth_data = ModrinthData::new(http_client.clone(), send.clone());
-    
+
     let mut account_info = load_accounts_json(&directories);
     for account in account_info.accounts.values_mut() {
         account.try_load_head_32x_from_head();
     }
-    
+
     let state = BackendState {
         recv,
         self_handle,
@@ -120,23 +120,23 @@ impl BackendState {
     async fn start(mut self) {
         // Pre-fetch version manifest
         self.meta.load(&MinecraftVersionManifestMetadata).await;
-        
+
         self.send.send(self.account_info.create_update_message()).await;
-        
+
         let _ = std::fs::create_dir_all(&self.directories.instances_dir);
-        
+
         self.watch_filesystem(&self.directories.instances_dir.clone(), WatchTarget::InstancesDir).await;
-        
+
         let mut paths_with_time = Vec::new();
-        
+
         for entry in std::fs::read_dir(&self.directories.instances_dir).unwrap() {
             let Ok(entry) = entry else {
                 eprintln!("Error reading directory in instances folder: {:?}", entry.unwrap_err());
                 continue;
             };
-            
+
             let path = entry.path();
-            
+
             let mut time = SystemTime::UNIX_EPOCH;
             if let Ok(metadata) = path.metadata() {
                 if let Ok(created) = metadata.created() {
@@ -146,7 +146,7 @@ impl BackendState {
                     time = time.max(created);
                 }
             }
-            
+
             // options.txt exists in every minecraft version, so we use its
             // modified time to determine the latest instance as well
             let mut options_txt = path.join(".minecraft");
@@ -159,10 +159,10 @@ impl BackendState {
                     time = time.max(created);
                 }
             }
-            
+
             paths_with_time.push((path, time));
         }
-        
+
         paths_with_time.sort_by_key(|(_, time)| *time);
         for (path, _) in paths_with_time {
             let success = self.load_instance_from_path(&path, true, false).await;
@@ -170,10 +170,10 @@ impl BackendState {
                 self.watch_filesystem(&path, WatchTarget::InvalidInstanceDir).await;
             }
         }
-        
+
         self.handle().await;
     }
-    
+
     pub async fn watch_filesystem(&mut self, path: &Path, target: WatchTarget) {
         if self.watcher.watch(path, notify::RecursiveMode::NonRecursive).is_err() {
             self.send.send_error(format!("Unable to watch directory {:?}, launcher may be out of sync with files!", path)).await;
@@ -181,7 +181,7 @@ impl BackendState {
         }
         self.watching.insert(path.into(), target);
     }
-    
+
     pub async fn remove_instance(&mut self, id: InstanceID) {
         if let Some(instance) = self.instances.get(id.index)
             && instance.id == id {
@@ -190,7 +190,7 @@ impl BackendState {
                 self.send.send_info(format!("Instance '{}' removed", instance.name)).await;
             }
     }
-    
+
     pub async fn load_instance_from_path(&mut self, path: &Path, mut show_errors: bool, show_success: bool) -> bool {
         let instance = Instance::load_from_folder(&path).await;
         let Ok(mut instance) = instance else {
@@ -201,37 +201,37 @@ impl BackendState {
                         self.send.send(MessageToFrontend::InstanceRemoved { id: instance.id}).await;
                         show_errors = true;
                     }
-            
+
             if show_errors {
                 let error = instance.unwrap_err();
                 self.send.send_error(format!("Unable to load instance from {:?}:\n{}", &path, &error)).await;
                 eprintln!("Error loading instance: {:?}", &error);
             }
-            
+
             return false;
         };
-        
+
         if let Some(existing) = self.instance_by_path.get(path)
             && let Some(existing_instance) = self.instances.get_mut(existing.index)
                 && existing_instance.id == *existing {
                     existing_instance.copy_basic_attributes_from(instance);
-                    
+
                     let _ = self.send.send(existing_instance.create_modify_message()).await;
-                    
+
                     if show_success {
                         self.send.send_info(format!("Instance '{}' updated", existing_instance.name)).await;
                     }
-                    
+
                     return true;
                 }
-        
+
         let vacant = self.instances.vacant_entry();
         let instance_id = InstanceID {
             index: vacant.key(),
             generation: self.instances_generation,
         };
         self.instances_generation = self.instances_generation.wrapping_add(1);
-        
+
         if show_success {
             self.send.send_success(format!("Instance '{}' created", instance.name)).await;
         }
@@ -247,18 +247,18 @@ impl BackendState {
         instance.id = instance_id;
         vacant.insert(instance);
         let _ = self.send.send(message).await;
-        
+
         self.instance_by_path.insert(path.to_owned(), instance_id);
-        
+
         self.watch_filesystem(path, WatchTarget::InstanceDir { id: instance_id }).await;
         true
     }
-    
+
     async fn handle(mut self) {
         let mut interval = tokio::time::interval(Duration::from_millis(1000));
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         tokio::pin!(interval);
-        
+
         loop {
             tokio::select! {
                 message = self.recv.recv() => {
@@ -286,10 +286,10 @@ impl BackendState {
             }
         }
     }
-    
+
     async fn handle_tick(&mut self) {
         self.modrinth_data.expire().await;
-        
+
         for (_, instance) in &mut self.instances {
             if let Some(child) = &mut instance.child
                 && !matches!(child.try_wait(), Ok(None)) {
@@ -298,7 +298,7 @@ impl BackendState {
                 }
         }
     }
-    
+
     async fn handle_notify_tick(&mut self) {
         for (_, instance) in &mut self.instances {
             if let Some(summaries) = instance.finish_loading_worlds().await {
@@ -306,7 +306,7 @@ impl BackendState {
                     id: instance.id,
                     worlds: Arc::clone(&summaries)
                 }).await;
-                
+
                 for summary in summaries.iter() {
                     if self.watcher.watch(&summary.level_path, notify::RecursiveMode::NonRecursive).is_ok() {
                         self.watching.insert(summary.level_path.clone(), WatchTarget::InstanceWorldDir {
@@ -329,7 +329,7 @@ impl BackendState {
             }
         }
     }
-    
+
     pub async fn login(
         &mut self,
         credentials: &mut AccountCredentials,
@@ -337,23 +337,23 @@ impl BackendState {
         modal_action: &ModalAction
     ) -> Result<(MinecraftProfileResponse, MinecraftAccessToken), LoginError> {
         let mut authenticator = Authenticator::new(self.http_client.clone());
-        
+
         login_tracker.set_total(AUTH_STAGE_COUNT as usize + 1);
         login_tracker.notify().await;
-        
+
         let mut last_auth_stage = None;
         let mut allow_backwards = true;
         loop {
             if modal_action.has_requested_cancel() {
                 return Err(LoginError::CancelledByUser);
             }
-            
+
             let stage_with_data = credentials.stage();
             let stage = stage_with_data.stage();
-            
+
             login_tracker.set_count(stage as usize + 1);
             login_tracker.notify().await;
-            
+
             if let Some(last_stage) = last_auth_stage {
                 if stage > last_stage {
                     allow_backwards = false;
@@ -366,7 +366,7 @@ impl BackendState {
                 }
             }
             last_auth_stage = Some(stage);
-            
+
             match credentials.stage() {
                 auth::credentials::AuthStageWithData::Initial => {
                     let pending = authenticator.create_authorization();
@@ -375,17 +375,17 @@ impl BackendState {
                         url: pending.url.as_str().into(),
                     });
                     self.send.send(MessageToFrontend::Refresh).await;
-                    
+
                     let cancel = modal_action.request_cancel.clone();
                     let finished = tokio::task::spawn_blocking(move || {
                         serve_redirect::start_server(pending, cancel)
                     }).await.unwrap()?;
-                    
+
                     modal_action.unset_visit_url();
                     self.send.send(MessageToFrontend::Refresh).await;
-                    
+
                     let msa_tokens = authenticator.finish_authorization(finished).await?;
-                    
+
                     credentials.msa_access = Some(msa_tokens.access);
                     credentials.msa_refresh = msa_tokens.refresh;
                 },
@@ -465,7 +465,7 @@ impl BackendState {
                         Ok(profile) => {
                             login_tracker.set_count(AUTH_STAGE_COUNT as usize + 1);
                             login_tracker.notify().await;
-                            
+
                             return Ok((profile, access_token));
                         },
                         Err(error) => {
@@ -482,28 +482,28 @@ impl BackendState {
             }
         }
     }
-    
+
     pub async fn write_account_info(&mut self) {
         // Check that accounts_json can be loaded before backing it up
         if let Ok(file) = std::fs::File::open(&self.directories.accounts_json)
             && serde_json::from_reader::<_, BackendAccountInfo>(file).is_ok() {
                 let _ = std::fs::rename(&self.directories.accounts_json, &self.directories.accounts_json_backup);
             }
-        
+
         let Ok(file) = std::fs::File::create(&self.directories.accounts_json) else {
             return;
         };
-        
+
         if serde_json::to_writer(file, &self.account_info).is_err() {
             self.send.send_error("Failed to save accounts.json").await;
         }
     }
-    
+
     pub fn update_profile_head(&self, profile: &MinecraftProfileResponse) {
         let Some(skin) = profile.skins.iter().find(|skin| skin.state == SkinState::Active).cloned() else {
             return;
         };
-        
+
         let handle = self.self_handle.clone();
         let http_client = self.http_client.clone();
         let uuid = profile.id;
@@ -517,20 +517,20 @@ impl BackendState {
             let Ok(mut image) = image::load_from_memory(&bytes) else {
                 return;
             };
-            
+
             let head = image.crop(8, 8, 8, 8);
-            
+
             let mut head_bytes = Vec::new();
             let mut cursor = Cursor::new(&mut head_bytes);
             if head.write_to(&mut cursor, image::ImageFormat::Png).is_err() {
                 return;
             }
-            
+
             let head_png: Arc<[u8]> = Arc::from(head_bytes);
-            
+
             let head_png_32x = if head.width() != 32 || head.height() != 32 {
                 let resized = head.resize_exact(32, 32, FilterType::Nearest);
-                
+
                 let mut head_png_32x = Vec::new();
                 let mut cursor = Cursor::new(&mut head_png_32x);
                 if resized.write_to(&mut cursor, image::ImageFormat::Png).is_ok() {
@@ -541,7 +541,7 @@ impl BackendState {
             } else {
                 head_png.clone()
             };
-            
+
             handle.send(MessageToBackend::UpdateAccountHeadPng {
                 uuid,
                 head_png,
@@ -556,12 +556,12 @@ fn load_accounts_json(directories: &LauncherDirectories) -> BackendAccountInfo {
         && let Ok(account_info) = serde_json::from_reader(file) {
             return account_info;
         }
-    
+
     if let Ok(file) = std::fs::File::open(&directories.accounts_json_backup)
         && let Ok(account_info) = serde_json::from_reader(file) {
             return account_info;
         }
-    
+
     BackendAccountInfo::default()
 }
 

@@ -43,27 +43,27 @@ impl ModalActionInner {
     pub fn set_finished(&self) {
         let _ = self.finished_at.compare_exchange(None, Some(Instant::now()), Ordering::SeqCst, Ordering::Relaxed);
     }
-    
+
     pub fn get_finished_at(&self) -> Option<Instant> {
         self.finished_at.load(Ordering::SeqCst)
     }
-    
+
     pub fn set_error_message(&self, error: Arc<str>) {
         *self.error.write().unwrap() = Some(error);
     }
-    
+
     pub fn set_visit_url(&self, visit_url: ModalActionVisitUrl) {
         *self.visit_url.write().unwrap() = Some(visit_url);
     }
-    
+
     pub fn unset_visit_url(&self) {
         *self.visit_url.write().unwrap() = None;
     }
-    
+
     pub fn request_cancel(&self) {
         self.request_cancel.cancel();
     }
-    
+
     pub fn has_requested_cancel(&self) -> bool {
         self.request_cancel.is_cancelled()
     }
@@ -90,7 +90,7 @@ impl ProgressTrackers {
     pub fn push(&self, tracker: ProgressTracker) {
         self.trackers.write().unwrap().push(tracker);
     }
-    
+
     pub fn clear(&self) {
         self.trackers.write().unwrap().clear();
     }

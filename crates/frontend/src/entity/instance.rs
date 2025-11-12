@@ -27,7 +27,7 @@ impl InstanceEntries {
                 mods_state,
                 mods: cx.new(|_| [].into()),
             };
-            
+
             entries.entries.insert(id, cx.new(|_| instance.clone()));
             cx.emit(InstanceAddedEvent {
                 instance
@@ -42,7 +42,7 @@ impl InstanceEntries {
             }
         });
     }
-    
+
     pub fn modify<C: AppContext>(entity: &Entity<Self>, id: InstanceID, name: SharedString, version: SharedString, loader: Loader, status: InstanceStatus, cx: &mut C) {
         entity.update(cx, |entries, cx| {
             if let Some(instance) = entries.entries.get_mut(&id) {
@@ -52,11 +52,11 @@ impl InstanceEntries {
                     instance.loader = loader;
                     instance.status = status;
                     cx.notify();
-                    
+
                     instance.clone()
                 });
-                
-                cx.emit(InstanceModifiedEvent { 
+
+                cx.emit(InstanceModifiedEvent {
                     instance: cloned
                 });
             }
@@ -75,7 +75,7 @@ impl InstanceEntries {
              }
         });
     }
-    
+
     pub fn set_servers<C: AppContext>(entity: &Entity<Self>, id: InstanceID, servers: Arc<[InstanceServerSummary]>, cx: &mut C) {
         entity.update(cx, |entries, cx| {
              if let Some(instance) = entries.entries.get_mut(&id) {
@@ -88,7 +88,7 @@ impl InstanceEntries {
              }
         });
     }
-    
+
     pub fn set_mods<C: AppContext>(entity: &Entity<Self>, id: InstanceID, mods: Arc<[InstanceModSummary]>, cx: &mut C) {
         entity.update(cx, |entries, cx| {
              if let Some(instance) = entries.entries.get_mut(&id) {
@@ -105,7 +105,7 @@ impl InstanceEntries {
     pub fn move_to_top<C: AppContext>(entity: &Entity<Self>, id: InstanceID, cx: &mut C) {
         entity.update(cx, |entries, cx| {
             if let Some(index) = entries.entries.get_index_of(&id) {
-                entries.entries.move_index(index, entries.entries.len() - 1); 
+                entries.entries.move_index(index, entries.entries.len() - 1);
                 let (_, entry) = entries.entries.get_index(entries.entries.len() - 1).unwrap();
                 cx.emit(InstanceMovedToTopEvent {
                     instance: entry.read(cx).clone()
@@ -143,7 +143,7 @@ impl InstanceEntry {
         } else {
             format!("{} ({:?} {})", self.name, self.loader, self.version)
         }
-        
+
     }
 }
 

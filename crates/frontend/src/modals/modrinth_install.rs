@@ -26,23 +26,23 @@ struct InstallDialog {
     project_versions: Arc<[ModrinthProjectVersion]>,
     data: DataEntities,
     content_type: ContentType,
-    
+
     version_matrix: FxHashMap<&'static str, VersionMatrixLoaders>,
     instances: Option<Entity<SelectState<InstanceDropdown>>>,
     unsupported_instances: usize,
-    
+
     target: Option<InstallTarget>,
-    
+
     last_selected_minecraft_version: Option<SharedString>,
     last_selected_loader: Option<SharedString>,
-    
+
     fixed_minecraft_version: Option<SharedString>,
     minecraft_version_select_state: Option<Entity<SelectState<SearchableVec<SharedString>>>>,
-    
+
     fixed_loader: Option<ModrinthLoader>,
     loader_select_state: Option<Entity<SelectState<Vec<SharedString>>>>,
     skip_loader_check_for_mod_version: bool,
-    
+
     mod_version_select_state: Option<Entity<SelectState<SearchableVec<ModVersionItem>>>>,
 }
 
@@ -51,7 +51,7 @@ impl InstallDialogLoading {
         let project_versions = FrontendModrinthData::request(&data.modrinth, ModrinthRequest::ProjectVersions(ModrinthProjectVersionsRequest {
             project_id,
         }), cx);
-        
+
         Self {
             name: SharedString::new(format!("Install {}", name)),
             project_versions,
@@ -59,7 +59,7 @@ impl InstallDialogLoading {
             content_type,
         }
     }
-    
+
     pub fn show(self, window: &mut Window, cx: &mut App) {
         let install_dialog = cx.new(|_| self);
         window.open_dialog(cx, move |modal, window, cx| {
@@ -68,10 +68,10 @@ impl InstallDialogLoading {
             })
         });
     }
-    
+
     fn render(&mut self, modal: Dialog, window: &mut Window, cx: &mut Context<Self>) -> Dialog {
         let modal = modal.title(self.name.clone());
-        
+
         let project_versions = self.project_versions.read(cx);
         match project_versions {
             FrontendModrinthDataState::Loading => {
@@ -81,7 +81,7 @@ impl InstallDialogLoading {
                 match result {
                     Ok(schema::modrinth::ModrinthResult::ProjectVersions(versions)) => {
                         let mut valid_project_versions = Vec::with_capacity(versions.0.len());
-                        
+
                         let mut version_matrix: FxHashMap<&'static str, VersionMatrixLoaders> = FxHashMap::default();
                         for version in versions.0.iter() {
                             let Some(loaders) = version.loaders.clone() else {
@@ -97,15 +97,15 @@ impl InstallDialogLoading {
                                 && !matches!(status, ModrinthVersionStatus::Listed | ModrinthVersionStatus::Archived) {
                                     continue;
                                 }
-                            
+
                             let mut loaders = EnumSet::from_iter(loaders.iter().copied());
                             loaders.remove(ModrinthLoader::Unknown);
                             if loaders.is_empty() {
                                 continue;
                             }
-                            
+
                             valid_project_versions.push(version.clone());
-                            
+
                             for game_version in game_versions.iter() {
                                 match version_matrix.entry(game_version.as_str()) {
                                     std::collections::hash_map::Entry::Occupied(mut occupied_entry) => {
@@ -121,12 +121,12 @@ impl InstallDialogLoading {
                                 }
                             }
                         }
-                        
+
                         let instance_entries = self.data.instances.clone();
-                        
+
                         let entries: Arc<[InstanceEntry]> = instance_entries.read(cx).entries.iter().rev().filter_map(|(_, instance)| {
                             let instance = instance.read(cx);
-                            
+
                             if let Some(loaders) = version_matrix.get(instance.version.as_str()) {
                                 let mut valid_loader = true;
                                 if self.content_type == ContentType::Mod || self.content_type == ContentType::Modpack {
@@ -136,10 +136,10 @@ impl InstallDialogLoading {
                                     return Some(instance.clone());
                                 }
                             }
-                            
+
                             None
                         }).collect();
-                        
+
                         let unsupported_instances = instance_entries.read(cx).entries.len().saturating_sub(entries.len());
                         let instances = if !entries.is_empty() {
                             let dropdown = InstanceDropdown::create(entries, window, cx);
@@ -148,7 +148,7 @@ impl InstallDialogLoading {
                         } else {
                             None
                         };
-                        
+
                         window.close_dialog(cx);
                         let install_dialog = InstallDialog {
                             name: self.name.clone(),
@@ -169,7 +169,7 @@ impl InstallDialogLoading {
                             last_selected_loader: None,
                         };
                         install_dialog.show(window, cx);
-                        
+
                         modal.child(h_flex().gap_2().child("Loading mod versions...").child(Spinner::new()))
                     },
                     Ok(_) => {
@@ -194,10 +194,10 @@ impl InstallDialog {
             })
         });
     }
-    
+
     fn render(&mut self, modal: Dialog, window: &mut Window, cx: &mut Context<Self>) -> Dialog {
         let modal = modal.title(self.name.clone());
-        
+
         if self.target.is_none() {
             let add_to_library_label = match self.content_type {
                 ContentType::Mod => "Add to mod library",
@@ -211,7 +211,7 @@ impl InstallDialog {
                 ContentType::Resourcepack => "Create new instance with this resourcepack",
                 ContentType::Shader => "Create new instance with this shader",
             };
-            
+
             let content = v_flex()
                 .gap_2()
                 .text_center()
@@ -219,7 +219,7 @@ impl InstallDialog {
                     let read_instances = instances.read(cx);
                     let selected_instance: Option<InstanceEntry> = read_instances.selected_index(cx)
                         .and_then(|v| read_instances.delegate(cx).get(v.row)).cloned();
-                    
+
                     let button_and_dropdown = h_flex()
                         .gap_2()
                         .child(v_flex()
@@ -243,7 +243,7 @@ impl InstallDialog {
                                 })
                             ))
                         });
-                    
+
                     content
                         .child(button_and_dropdown)
                         .child("— OR —")
@@ -255,10 +255,10 @@ impl InstallDialog {
                 .child(Button::new("create").warning().label(create_instance_label).on_click(cx.listener(|this, _, _, _| {
                     this.target = Some(InstallTarget::NewInstance);
                 })));
-            
+
             return modal.child(content);
         }
-        
+
         if self.minecraft_version_select_state.is_none() {
             if let Some(minecraft_version) = self.fixed_minecraft_version.clone() {
                 self.minecraft_version_select_state = Some(cx.new(|cx| {
@@ -288,15 +288,15 @@ impl InstallDialog {
                 }));
             }
         }
-        
+
         let selected_minecraft_version = self.minecraft_version_select_state.as_ref().and_then(|v| v.read(cx).selected_value()).cloned();
         let game_version_changed = self.last_selected_minecraft_version != selected_minecraft_version;
         self.last_selected_minecraft_version = selected_minecraft_version.clone();
-        
+
         if self.loader_select_state.is_none() || game_version_changed {
             self.last_selected_minecraft_version = selected_minecraft_version.clone();
             self.skip_loader_check_for_mod_version = false;
-            
+
             if let Some(loader) = self.fixed_loader {
                 let loader = SharedString::new_static(loader.name());
                 self.loader_select_state = Some(cx.new(|cx| {
@@ -322,7 +322,7 @@ impl InstallDialog {
                             }
                             SharedString::new(string)
                         };
-                        
+
                         self.skip_loader_check_for_mod_version = true;
                         self.loader_select_state = Some(cx.new(|cx| {
                             let mut select_state = SelectState::new(vec![single_loader], None, window, cx);
@@ -331,7 +331,7 @@ impl InstallDialog {
                         }));
                     } else {
                         let keys: Vec<SharedString> = loaders.loaders.iter().map(ModrinthLoader::name).map(SharedString::new_static).collect();
-                        
+
                         let previous = self.loader_select_state.as_ref().and_then(|state| state.read(cx).selected_value().cloned());
                         self.loader_select_state = Some(cx.new(|cx| {
                             let mut select_state = SelectState::new(keys, None, window, cx);
@@ -353,21 +353,21 @@ impl InstallDialog {
                 }));
             }
         }
-        
+
         let selected_loader = self.loader_select_state.as_ref().and_then(|v| v.read(cx).selected_value()).cloned();
         let loader_changed = self.last_selected_loader != selected_loader;
         self.last_selected_loader = selected_loader.clone();
-        
+
         if (self.mod_version_select_state.is_none() || game_version_changed || loader_changed)
             && let Some(selected_game_version) = selected_minecraft_version && let Some(selected_loader) = self.last_selected_loader.clone() {
                 let selected_game_version = selected_game_version.as_str();
-                
+
                 let selected_loader = if self.skip_loader_check_for_mod_version {
                     None
                 } else {
                     Some(ModrinthLoader::from_name(selected_loader.as_str()))
                 };
-                
+
                 let mod_versions: Vec<ModVersionItem> = self.project_versions.iter().filter_map(|version| {
                     let Some(game_versions) = &version.game_versions else {
                         return None;
@@ -387,13 +387,13 @@ impl InstallDialog {
                     if matches_game_version && matches_loader {
                         let name = version.version_number.clone().unwrap_or(version.name.clone().unwrap_or(version.id.clone()));
                         let mut name = SharedString::new(name);
-                        
+
                         match version.version_type {
                             Some(ModrinthVersionType::Beta) => name = format!("{} (Beta)", name).into(),
                             Some(ModrinthVersionType::Alpha) => name = format!("{} (Alpha)", name).into(),
                             _ => {}
                         }
-                        
+
                         Some(ModVersionItem {
                             name,
                             version: version.clone()
@@ -402,11 +402,11 @@ impl InstallDialog {
                         None
                     }
                 }).collect();
-                
+
                 let mut highest_release = None;
                 let mut highest_beta = None;
                 let mut highest_alpha = None;
-                
+
                 for (index, version) in mod_versions.iter().enumerate() {
                     match version.version.version_type {
                         Some(ModrinthVersionType::Release) => {
@@ -426,9 +426,9 @@ impl InstallDialog {
                         _ => {}
                     }
                 }
-                
+
                 let highest = highest_release.or(highest_beta).or(highest_alpha);
-                
+
                 self.mod_version_select_state = Some(cx.new(|cx| {
                     let mut select_state = SelectState::new(SearchableVec::new(mod_versions), None, window, cx).searchable(true);
                     if let Some(index) = highest {
@@ -437,16 +437,16 @@ impl InstallDialog {
                     select_state
                 }));
             }
-        
+
         let selected_mod_version = self.mod_version_select_state.as_ref().and_then(|state| state.read(cx).selected_value()).cloned();
-        
+
         let mod_version_prefix = match self.content_type {
             ContentType::Mod => "Mod Version: ",
             ContentType::Modpack => "Modpack version: ",
             ContentType::Resourcepack => "Pack version: ",
             ContentType::Shader => "Shader version: ",
         };
-        
+
         let content = v_flex()
             .gap_2()
             .child(Select::new(self.minecraft_version_select_state.as_ref().unwrap())
@@ -462,11 +462,11 @@ impl InstallDialog {
                             window.push_notification((NotificationType::Error, "No mod version selected"), cx);
                             return;
                         };
-                         
+
                         let install_file = selected_mod_version.files.iter()
                             .find(|file| file.primary)
                             .unwrap_or(selected_mod_version.files.first().unwrap());
-                         
+
                         let content_install = ContentInstall {
                             target: this.target.unwrap(),
                             files: [
@@ -479,12 +479,12 @@ impl InstallDialog {
                                 }
                             ].into(),
                         };
-                        
+
                         window.close_dialog(cx);
                         root::start_install(content_install, &this.data.backend_handle, window, cx);
                     })))
             });
-        
+
         modal.child(content)
     }
 }

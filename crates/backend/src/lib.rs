@@ -35,7 +35,7 @@ pub(crate) fn check_sha1_hash(path: &Path, expected_hash: [u8; 20]) -> std::io::
     let mut file = std::fs::File::open(path)?;
     let mut hasher = Sha1::new();
     let _ = std::io::copy(&mut file, &mut hasher)?;
-    
+
     let actual_hash = hasher.finalize();
 
     Ok(expected_hash == *actual_hash)

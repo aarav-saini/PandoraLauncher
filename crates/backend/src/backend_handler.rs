@@ -19,7 +19,7 @@ impl BackendState {
             MessageToBackend::RequestLoadWorlds { id } => {
                 if let Some(instance) = self.instances.get_mut(id.index) && instance.id == id {
                     instance.start_load_worlds(&self.notify_tick);
-                    
+
                     if !instance.watching_dot_minecraft {
                         instance.watching_dot_minecraft = true;
                         if self.watcher.watch(&instance.dot_minecraft_path, notify::RecursiveMode::NonRecursive).is_ok() {
@@ -42,7 +42,7 @@ impl BackendState {
             MessageToBackend::RequestLoadServers { id } => {
                 if let Some(instance) = self.instances.get_mut(id.index) && instance.id == id {
                     instance.start_load_servers(&self.notify_tick);
-                    
+
                     if !instance.watching_dot_minecraft {
                         instance.watching_dot_minecraft = true;
                         if self.watcher.watch(&instance.dot_minecraft_path, notify::RecursiveMode::NonRecursive).is_ok() {
@@ -65,7 +65,7 @@ impl BackendState {
             MessageToBackend::RequestLoadMods { id } => {
                 if let Some(instance) = self.instances.get_mut(id.index) && instance.id == id {
                     instance.start_load_mods(&self.notify_tick, &self.mod_metadata_manager);
-                    
+
                     if !instance.watching_dot_minecraft {
                         instance.watching_dot_minecraft = true;
                         if self.watcher.watch(&instance.dot_minecraft_path, notify::RecursiveMode::NonRecursive).is_ok() {
@@ -98,18 +98,18 @@ impl BackendState {
                     self.send.send_warning("Unable to create instance, name is already used".to_string()).await;
                     return;
                 }
-                
+
                 let instance_dir = self.directories.instances_dir.join(name.as_str());
-                
+
                 let _ = tokio::fs::create_dir_all(&instance_dir).await;
-                
+
                 self.watch_filesystem(&self.directories.instances_dir.clone(), WatchTarget::InstancesDir).await;
-                
+
                 let instance_info = InstanceInfo {
                     minecraft_version: version,
                     loader,
                 };
-                
+
                 let info_path = instance_dir.join("info_v1.json");
                 tokio::fs::write(info_path, serde_json::to_string_pretty(&instance_info).unwrap()).await.unwrap();
             },
@@ -122,37 +122,37 @@ impl BackendState {
                                 self.send.send_error("Failed to kill instance").await;
                                 eprintln!("Failed to kill instance: {:?}", result.unwrap_err());
                             }
-                            
+
                             self.send.send(instance.create_modify_message()).await;
                         } else {
                             self.send.send_error("Can't kill instance, instance wasn't running").await;
                         }
                         return;
                     }
-                
+
                 self.send.send_error("Can't kill instance, unknown id").await;
             }
             MessageToBackend::StartInstance { id, quick_play, modal_action } => {
                 let secret_storage = self.secret_storage.get_or_init(PlatformSecretStorage::new).await;
-                
+
                 let mut credentials = if let Some(selected_account) = self.account_info.selected_account {
                     secret_storage.read_credentials(selected_account).await.ok().flatten().unwrap_or_default()
                 } else {
                     AccountCredentials::default()
                 };
-                
+
                 let login_tracker = ProgressTracker::new(Arc::from("Logging in"), self.send.clone());
                 modal_action.trackers.push(login_tracker.clone());
-                
+
                 let login_result = self.login(&mut credentials, &login_tracker, &modal_action).await;
-                
+
                 if matches!(login_result, Err(LoginError::CancelledByUser)) {
                     self.send.send(MessageToFrontend::CloseModal).await;
                     return;
                 }
-                
+
                 let secret_storage = self.secret_storage.get_or_init(PlatformSecretStorage::new).await;
-                
+
                 let (profile, access_token) = match login_result {
                     Ok(login_result) => {
                         login_tracker.set_finished(false);
@@ -163,7 +163,7 @@ impl BackendState {
                         if let Some(selected_account) = self.account_info.selected_account {
                             let _ = secret_storage.delete_credentials(selected_account).await;
                         }
-                        
+
                         modal_action.set_error_message(format!("Error logging in: {}", &err).into());
                         login_tracker.set_finished(true);
                         login_tracker.notify().await;
@@ -171,13 +171,13 @@ impl BackendState {
                         return;
                     },
                 };
-                
+
                 if let Some(selected_account) = self.account_info.selected_account && profile.id != selected_account {
                     let _ = secret_storage.delete_credentials(selected_account).await;
                 }
-                
+
                 let mut update_account_json = false;
-                
+
                 if let Some(account) = self.account_info.accounts.get_mut(&profile.id) {
                     if !account.downloaded_head {
                         account.downloaded_head = true;
@@ -190,27 +190,27 @@ impl BackendState {
                     self.update_profile_head(&profile);
                     update_account_json = true;
                 }
-                
+
                 if self.account_info.selected_account != Some(profile.id) {
                     self.account_info.selected_account = Some(profile.id);
                     update_account_json = true;
                 }
-                
+
                 if secret_storage.write_credentials(profile.id, &credentials).await.is_err() {
                     self.send.send_warning("Unable to write credentials to keychain. You might need to fully log in again next time").await;
                 }
-                
+
                 if update_account_json {
                     self.write_account_info().await;
                     self.send.send(self.account_info.create_update_message()).await;
                 }
-                
+
                 let login_info = MinecraftLoginInfo {
                     uuid: profile.id,
                     username: profile.name.clone(),
                     access_token,
                 };
-                
+
                 if let Some(instance) = self.instances.get_mut(id.index) && instance.id == id {
                     if instance.child.is_some() {
                         self.send.send_warning("Can't launch instance, already running").await;
@@ -218,28 +218,28 @@ impl BackendState {
                         modal_action.set_finished();
                         return;
                     }
-                    
+
                     if modal_action.has_requested_cancel() {
                         self.send.send(MessageToFrontend::CloseModal).await;
                         return;
                     }
-                    
+
                     self.send.send(MessageToFrontend::MoveInstanceToTop {
                         id
                     }).await;
                     self.send.send(instance.create_modify_message_with_status(InstanceStatus::Launching)).await;
-                    
+
                     let launch_tracker = ProgressTracker::new(Arc::from("Launching"), self.send.clone());
                     modal_action.trackers.push(launch_tracker.clone());
-                    
+
                     let result = self.launcher.launch(&self.http_client, instance, quick_play, login_info, &launch_tracker, &modal_action).await;
-                    
+
                     if matches!(result, Err(LaunchError::CancelledByUser)) {
                         self.send.send(MessageToFrontend::CloseModal).await;
                         self.send.send(instance.create_modify_message()).await;
                         return;
                     }
-                    
+
                     let is_err = result.is_err();
                     match result {
                         Ok(mut child) => {
@@ -252,16 +252,16 @@ impl BackendState {
                             modal_action.set_error_message(format!("{}", &err).into());
                         },
                     }
-                    
+
                     launch_tracker.set_finished(is_err);
                     launch_tracker.notify().await;
                     modal_action.set_finished();
-                    
+
                     self.send.send(instance.create_modify_message()).await;
-                    
+
                     return;
                 }
-                
+
                 self.send.send_error("Can't launch instance, unknown id").await;
                 modal_action.set_error_message("Can't launch instance, unknown id".into());
                 modal_action.set_finished();
@@ -272,25 +272,25 @@ impl BackendState {
                         let Some(file_name) = instance_mod.path.file_name() else {
                             return;
                         };
-                        
+
                         if instance_mod.enabled == enabled {
                             return;
                         }
-                        
+
                         let new_path = if instance_mod.enabled {
                             let mut file_name = file_name.to_owned();
                             file_name.push(".disabled");
                             instance_mod.path.with_file_name(file_name)
                         } else {
                             let file_name = file_name.to_str().unwrap();
-                            
+
                             assert!(file_name.ends_with(".disabled"));
-                            
+
                             let without_disabled = &file_name[..file_name.len()-".disabled".len()];
-                            
+
                             instance_mod.path.with_file_name(without_disabled)
                         };
-                        
+
                         self.reload_mods_immediately.insert(id);
                         let _ = std::fs::rename(&instance_mod.path, new_path);
                     }
@@ -324,7 +324,7 @@ impl BackendState {
             }
         }
     }
-    
+
     pub async fn download_all_metadata(&self) {
         let Ok(versions) = self.meta.fetch(&MinecraftVersionManifestMetadata).await else {
             panic!("Unable to get Minecraft version manifest");
@@ -334,9 +334,9 @@ impl BackendState {
             let Ok(version_info) = self.meta.fetch(&MinecraftVersionMetadata(link)).await else {
                 panic!("Unable to get load version: {:?}", link.id);
             };
-            
+
             let asset_index = format!("{}", version_info.assets);
-            
+
             let Ok(_) = self.meta.fetch(&AssetsIndexMetadata {
                 url: version_info.asset_index.url,
                 cache: self.directories.assets_index_dir.join(format!("{}.json", &asset_index)).into(),
@@ -344,7 +344,7 @@ impl BackendState {
             }).await else {
                 todo!("Can't get assets index {:?}", version_info.asset_index.url);
             };
-            
+
             if let Some(arguments) = &version_info.arguments {
                 for argument in arguments.game.iter() {
                     let value = match argument {

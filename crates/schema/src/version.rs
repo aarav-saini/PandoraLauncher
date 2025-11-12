@@ -136,7 +136,7 @@ pub struct AssetIndexLink {
     pub size: u32,
     pub total_size: u32,
     pub url: Ustr,
-    
+
 }
 
 #[derive(Deserialize, Clone, Debug)]

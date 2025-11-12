@@ -35,10 +35,10 @@ pub struct ModrinthSearchPage {
 impl ModrinthSearchPage {
     pub fn new(data: &DataEntities, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let search_state = cx.new(|cx| InputState::new(window, cx).placeholder("Search mods...").clean_on_escape());
-        
+
         let _search_input_subscription =
             cx.subscribe_in(&search_state, window, Self::on_search_input_event);
-        
+
         let mut page = Self {
             data: data.clone(),
             hits: Vec::new(),
@@ -56,30 +56,30 @@ impl ModrinthSearchPage {
         page.load_more(cx);
         page
     }
-    
+
     fn on_search_input_event(
         &mut self,
         state: &Entity<InputState>,
         event: &InputEvent,
         _window: &mut Window,
         cx: &mut Context<Self>,
-    ) { 
+    ) {
         let InputEvent::Change = event else {
             return;
         };
-        
+
         let search = state.read(cx).text().to_string();
         let search = search.trim();
-        
+
         if &*self.last_search == search {
             return;
         }
-        
+
         let search: Arc<str> = Arc::from(search);
         self.last_search = search.clone();
         self.reload(cx);
     }
-    
+
     fn set_project_type(&mut self, project_type: ProjectType, cx: &mut Context<Self>) {
         if self.project_type == project_type {
             return;
@@ -87,11 +87,11 @@ impl ModrinthSearchPage {
         self.project_type = project_type;
         self.reload(cx);
     }
-    
+
     fn reload(&mut self, cx: &mut Context<Self>) {
         self.pending_clear = true;
         self.loading = None;
-        
+
         self._delayed_clear_task = cx.spawn(async |page, cx| {
             gpui::Timer::after(Duration::from_millis(300)).await;
             let _ = page.update(cx, |page, cx| {
@@ -103,21 +103,21 @@ impl ModrinthSearchPage {
                 }
             });
         });
-        
+
         self.load_more(cx);
     }
-    
+
     fn load_more(&mut self, cx: &mut Context<Self>) {
         if self.loading.is_some() {
             return;
         }
-        
+
         let query = if self.last_search.is_empty() {
             None
         } else {
             Some(self.last_search.clone())
         };
-        
+
         let project_type = match self.project_type {
             ProjectType::Mod => "mod",
             ProjectType::Modpack => "modpack",
@@ -125,13 +125,13 @@ impl ModrinthSearchPage {
             ProjectType::Shader => "shader",
             ProjectType::Datapack => "datapack",
         };
-        
+
         let offset = if self.pending_clear {
             0
         } else {
             self.hits.len()
         };
-        
+
         let request = ModrinthSearchRequest {
             query,
             facets: Some(format!("[[\"project_type={}\"]]", project_type).into()),
@@ -139,14 +139,14 @@ impl ModrinthSearchPage {
             offset,
             limit: 20,
         };
-        
+
         let data = FrontendModrinthData::request(&self.data.modrinth, ModrinthRequest::Search(request), cx);
-        
+
         if let FrontendModrinthDataState::Loaded { result, .. } = data.read(cx) {
             self.apply_search_data(result);
             return;
         }
-        
+
         let subscription = cx.observe(&data, |page, data, cx| {
             if let FrontendModrinthDataState::Loaded { result, .. } = data.read(cx) {
                 page.apply_search_data(result);
@@ -156,20 +156,20 @@ impl ModrinthSearchPage {
         });
         self.loading = Some(subscription);
     }
-    
+
     fn apply_search_data(&mut self, result: &Result<ModrinthResult, ModrinthError>) {
         if self.pending_clear {
             self.pending_clear = false;
             self.hits.clear();
             self.total_hits = 1;
         }
-        
+
         match result {
             Ok(value) => {
                 let ModrinthResult::Search(search_result) = value else {
                     unreachable!();
                 };
-                
+
                 self.hits.extend(search_result.hits.iter().cloned());
                 self.total_hits = search_result.total_hits;
             },
@@ -183,9 +183,9 @@ impl Render for ModrinthSearchPage {
         let can_load_more = self.total_hits > self.hits.len();
         let scroll_handle = self.scroll_handle.clone();
         let scroll_state = self.scroll_state.clone();
-        
+
         let item_count = self.hits.len() + if can_load_more { 1 } else { 0 };
-        
+
         let list = h_flex()
             .size_full()
             .overflow_y_hidden()
@@ -200,7 +200,7 @@ impl Render for ModrinthSearchPage {
                             should_load_more = true;
                             return div().pl_3().pt_3().child(Skeleton::new().w_full().h(px(28.0*4.0)).rounded_lg());
                         };
-                        
+
                         let image = if let Some(icon_url) = &hit.icon_url && !icon_url.is_empty() {
                             gpui::img(SharedUri::from(icon_url)).with_fallback(|| {
                                 Skeleton::new().rounded_lg().size_16().into_any_element()
@@ -208,19 +208,19 @@ impl Render for ModrinthSearchPage {
                         } else {
                             gpui::img(ImageSource::Resource(Resource::Embedded("images/default_mod.png".into())))
                         };
-                        
+
                         let name = hit.title.as_ref().map(Arc::clone)
                             .map(SharedString::new).unwrap_or(SharedString::new_static("Unnamed"));
                         let author = format!("by {}", hit.author.clone());
                         let description = hit.description.as_ref().map(Arc::clone)
                             .map(SharedString::new).unwrap_or(SharedString::new_static("No Description"));
-                        
+
                         const GRAY: Hsla = Hsla { h: 0.0, s: 0.0, l: 0.5, a: 1.0};
                         let author_line = div().text_color(GRAY).text_sm().pb_px().child(author);
-                        
+
                         let client_side = hit.client_side.unwrap_or(ModrinthSideRequirement::Unknown);
                         let server_side = hit.server_side.unwrap_or(ModrinthSideRequirement::Unknown);
-                        
+
                         let (env_icon, env_name) = match (client_side, server_side) {
                             (ModrinthSideRequirement::Required, ModrinthSideRequirement::Required) => {
                                 (Icon::empty().path("icons/globe.svg"), ts!("client_and_server"))
@@ -244,9 +244,9 @@ impl Render for ModrinthSearchPage {
                                 (Icon::empty().path("icons/cpu.svg"), ts!("unknown_environment"))
                             }
                         };
-                        
+
                         let environment = h_flex().gap_1().font_bold().child(env_icon).child(env_name);
-                        
+
                         let categories = hit.display_categories.iter().flat_map(|categories| {
                             categories.iter().map(|category| {
                                 let icon = icon_for(category).unwrap_or("icons/diamond.svg");
@@ -255,10 +255,10 @@ impl Render for ModrinthSearchPage {
                                 h_flex().gap_0p5().child(icon).child(translated_category)
                             })
                         });
-                        
+
                         let download_icon = Icon::empty().path("icons/download.svg");
                         let downloads = h_flex().gap_0p5().child(download_icon.clone()).child(format_downloads(hit.downloads));
-                        
+
                         let buttons = ButtonGroup::new(("buttons", index)).layout(Axis::Vertical)
                             .child(Button::new(("install", index)).label("Install").icon(download_icon).success().on_click({
                                 let data = this.data.clone();
@@ -271,7 +271,7 @@ impl Render for ModrinthSearchPage {
                                     schema::modrinth::ModrinthProjectType::Shader => Some(ContentType::Shader),
                                     _ => None,
                                 };
-                                
+
                                 move |_, window, cx| {
                                     if let Some(content_type) = content_type {
                                         let install = InstallDialogLoading::new(name.as_str(), project_id.clone(),
@@ -289,7 +289,7 @@ impl Render for ModrinthSearchPage {
                                     cx.open_url(&format!("https://modrinth.com/{}/{}", project_type, project_id));
                                 }
                             }));
-                        
+
                         let item = h_flex()
                             .rounded_lg()
                             .px_4()
@@ -306,26 +306,26 @@ impl Render for ModrinthSearchPage {
                                 .child(div().flex_auto().line_height(px(20.0)).line_clamp(2).child(description))
                                 .child(h_flex().gap_2p5().children(std::iter::once(environment).chain(categories))))
                             .child(v_flex().gap_2().child(downloads).child(buttons));
-                        
+
                         div().pl_3().pt_3().child(item)
                     }).collect();
-                    
+
                     if should_load_more {
                         this.load_more(cx);
                     }
-                    
+
                     items
                 })).size_full().track_scroll(scroll_handle.clone())
             )
             .child(div().w_3().h_full().py_3().child(Scrollbar::uniform_scroll(&scroll_state, &scroll_handle)));
-        
+
         let theme = cx.theme();
         let content = v_flex()
             .size_full()
             .gap_3()
             .child(Input::new(&self.search_state))
             .child(div().size_full().rounded_lg().border_1().border_color(theme.border).child(list));
-        
+
         let type_button_group = ButtonGroup::new("type").layout(Axis::Vertical).outline()
             .child(Button::new("mods").label("Mods").selected(self.project_type == ProjectType::Mod))
             .child(Button::new("modpacks").label("Modpacks").selected(self.project_type == ProjectType::Modpack))
@@ -341,12 +341,12 @@ impl Render for ModrinthSearchPage {
                     _ => {}
                 }
             }));
-        
+
         let parameters = v_flex()
             .h_full()
             .gap_3()
             .child(type_button_group);
-        
+
         ui::page(cx, "Modrinth").child(h_flex().size_full().p_3().gap_3().child(parameters).child(content))
     }
 }

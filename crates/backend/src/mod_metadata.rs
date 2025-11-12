@@ -17,20 +17,20 @@ impl ModMetadataManager {
         let mut hasher = Sha1::new();
         let _ = std::io::copy(file, &mut hasher).ok()?;
         let actual_hash: [u8; 20] = hasher.finalize().into();
-        
+
         // todo: cache on disk! (but only when we need to store additional metadata like source)
-        
+
         if let Some(summary) = self.by_hash.read().unwrap().get(&actual_hash) {
             return summary.clone();
         }
-        
+
         let summary = Self::load(file);
-        
+
         self.by_hash.write().unwrap().insert(actual_hash, summary.clone());
-        
+
         summary
     }
-    
+
     pub fn load(file: &mut std::fs::File) -> Option<Arc<ModSummary>> {
         let mut archive = zip::ZipArchive::new(file).ok()?;
         let file = match archive.by_name("fabric.mod.json") {
@@ -39,11 +39,11 @@ impl ModMetadataManager {
                 return None;
             }
         };
-        
+
         let fabric_mod_json: FabricModJson = serde_json::from_reader(file).unwrap();
-        
+
         let name = fabric_mod_json.name.unwrap_or_else(|| Arc::clone(&fabric_mod_json.id));
-        
+
         let icon = match fabric_mod_json.icon {
             Some(icon) => match icon {
                 Icon::Single(icon) => Some(icon),
@@ -54,12 +54,12 @@ impl ModMetadataManager {
             },
             None => None,
         };
-        
+
         let mut png_icon: Option<Arc<[u8]>> = None;
         if let Some(icon) = icon && let Ok(icon_file) = archive.by_name(&icon) {
             png_icon = load_icon(icon_file);
         }
-        
+
         let authors = if let Some(authors) = fabric_mod_json.authors && !authors.is_empty() {
             let mut authors_string = "By ".to_owned();
             let mut first = true;
@@ -75,7 +75,7 @@ impl ModMetadataManager {
         } else {
             "".into()
         };
-        
+
         Some(Arc::new(ModSummary {
             id: fabric_mod_json.id,
             name,
@@ -91,11 +91,11 @@ fn load_icon(mut icon_file: ZipFile<'_, &mut File>) -> Option<Arc<[u8]>> {
     let Ok(_) = icon_file.read_to_end(&mut icon_bytes) else {
         return None;
     };
-    
+
     let Ok(image) = image::load_from_memory(&icon_bytes) else {
         return None;
     };
-    
+
     let width = image.width();
     let height = image.height();
     if image.width() != 64 || image.height() != 64 {
@@ -105,14 +105,14 @@ fn load_icon(mut icon_file: ZipFile<'_, &mut File>) -> Option<Arc<[u8]>> {
             FilterType::Nearest
         };
         let resized = image.resize_exact(64, 64, filter);
-        
+
         icon_bytes.clear();
         let mut cursor = Cursor::new(&mut icon_bytes);
         if resized.write_to(&mut cursor, image::ImageFormat::Png).is_err() {
             return None;
         }
     }
-    
+
     Some(icon_bytes.into())
 }
 

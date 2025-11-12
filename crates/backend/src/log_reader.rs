@@ -8,22 +8,22 @@ static GAME_OUTPUT_ID: AtomicUsize = AtomicUsize::new(0);
 pub fn start_game_output(stdout: ChildStdout, sender: FrontendHandle) {
     let unknown_thread: Arc<str> = Arc::from("<unknown thread>");
     let empty_message: Arc<str> = Arc::from("<empty>");
-    
+
     std::thread::spawn(move || {
         let id = GAME_OUTPUT_ID.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-        
+
         let keep_alive = KeepAlive::new();
         let keep_alive_handle = keep_alive.create_handle();
         sender.blocking_send(MessageToFrontend::CreateGameOutputWindow {
             id,
             keep_alive
         });
-        
+
         let mut reader = quick_xml::reader::Reader::from_reader(BufReader::new(stdout));
-        
+
         let mut buf = Vec::new();
         let mut stack = Vec::new();
-        
+
         #[derive(Debug)]
         enum ParseState {
             Event {
@@ -41,14 +41,14 @@ pub fn start_game_output(stdout: ChildStdout, sender: FrontendHandle) {
             },
             Unknown,
         }
-        
+
         let mut last_thread: Option<Arc<str>> = None;
         let mut last_message: Option<Arc<str>> = None;
         let mut last_throwable: Option<Arc<str>> = None;
-        
+
         let mut raw_text = String::new();
         let mut read_raw_text = false;
-        
+
         let replacements = [
             // Access token replacements
             (regex::Regex::new(r#"SignedJWT: [^\s]+"#).unwrap(), "SignedJWT: *****"),
@@ -59,7 +59,7 @@ pub fn start_game_output(stdout: ChildStdout, sender: FrontendHandle) {
             (regex::Regex::new(r#"\\Users\\[^\\]+\\"#).unwrap(), "\\Users\\*****\\"),
             (regex::Regex::new(r#"\\\\Users\\\\[^/]+\\\\"#).unwrap(), "\\\\Users\\\\*****\\\\"),
         ];
-        
+
         while keep_alive_handle.is_alive() {
             buf.clear();
             match reader.read_event_into(&mut buf) {
@@ -113,7 +113,7 @@ pub fn start_game_output(stdout: ChildStdout, sender: FrontendHandle) {
                                                     thread = last_thread.clone();
                                                     continue;
                                                 }
-                                                
+
                                                 let Ok(value) = str::from_utf8(&attribute.value) else {
                                                     continue;
                                                 };
@@ -171,7 +171,7 @@ pub fn start_game_output(stdout: ChildStdout, sender: FrontendHandle) {
                         None => {
                             if let ParseState::Event { timestamp, thread, level, mut text, mut throwable  } = popped {
                                 let mut lines = Vec::new();
-                                
+
                                 if let Some(text) = text.as_mut() {
                                     let mut replaced = Cow::Borrowed(&**text);
                                     for (regex, replacement) in &replacements {
@@ -194,7 +194,7 @@ pub fn start_game_output(stdout: ChildStdout, sender: FrontendHandle) {
                                         *throwable = replaced.into();
                                     }
                                 }
-                                
+
                                 if let Some(text) = &text {
                                     let mut split = text.trim_end().split("\n");
                                     if let Some(first) = split.next() && let Some(second) = split.next() {
@@ -211,7 +211,7 @@ pub fn start_game_output(stdout: ChildStdout, sender: FrontendHandle) {
                                         if let Some(text) = text.take() && lines.is_empty() {
                                             lines.push(text);
                                         }
-                                        
+
                                         lines.push(Arc::from(first.trim_end()));
                                         lines.push(Arc::from(second.trim_end()));
                                         for next in split {
@@ -219,7 +219,7 @@ pub fn start_game_output(stdout: ChildStdout, sender: FrontendHandle) {
                                         }
                                     }
                                 }
-                                
+
                                 let final_lines: Arc<[Arc<str>]> = if !lines.is_empty() {
                                     lines.into()
                                 } else if let Some(text) = text.take() {
@@ -258,7 +258,7 @@ pub fn start_game_output(stdout: ChildStdout, sender: FrontendHandle) {
                                 panic!("Don't know how to handle popping {:?} on {:?}", popped, last);
                             }
                         }
-                    }  
+                    }
                 },
                 Ok(quick_xml::events::Event::CData(e)) => {
                     match stack.last_mut() {
@@ -268,7 +268,7 @@ pub fn start_game_output(stdout: ChildStdout, sender: FrontendHandle) {
                                 *content = Some(last_message.clone());
                                 continue;
                             }
-                            
+
                             let message: Arc<str> = String::from_utf8_lossy(&e).into_owned().into();
                             *content = Some(message.clone());
                             last_message = Some(message);
@@ -279,7 +279,7 @@ pub fn start_game_output(stdout: ChildStdout, sender: FrontendHandle) {
                                 *content = Some(last_throwable.clone());
                                 continue;
                             }
-                            
+
                             let message: Arc<str> = String::from_utf8_lossy(&e).into_owned().into();
                             *content = Some(message.clone());
                             last_throwable = Some(message);
@@ -296,7 +296,7 @@ pub fn start_game_output(stdout: ChildStdout, sender: FrontendHandle) {
                     if read_raw.trim_ascii().is_empty() {
                         continue;
                     }
-                    
+
                     if stack.is_empty() {
                         // We got text at the root level, fallback to writing raw text output
                         read_raw_text = true;
@@ -324,7 +324,7 @@ pub fn start_game_output(stdout: ChildStdout, sender: FrontendHandle) {
             } else {
                 GameOutputLogLevel::Info
             };
-            
+
             let mut last: Option<&str> = None;
             for split in raw_text.split("\n") {
                 if let Some(last) = last {
@@ -343,7 +343,7 @@ pub fn start_game_output(stdout: ChildStdout, sender: FrontendHandle) {
             } else {
                 raw_text.clear();
             }
-            
+
             let mut stream = reader.stream();
             let stream = stream.get_mut();
             while keep_alive_handle.is_alive() {
@@ -359,7 +359,7 @@ pub fn start_game_output(stdout: ChildStdout, sender: FrontendHandle) {
                                 replaced = Cow::Owned(new);
                             }
                         }
-                        
+
                         sender.blocking_send(MessageToFrontend::AddGameOutput {
                             id,
                             time: Utc::now().timestamp_millis(),

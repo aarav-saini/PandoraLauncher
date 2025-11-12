@@ -57,17 +57,17 @@ pub fn start(panic_message: Arc<RwLock<Option<String>>>, backend_handle: Backend
     let http_client = std::sync::Arc::new(
         reqwest_client::ReqwestClient::user_agent("PandoraLauncher/0.1.0 (https://github.com/Moulberry/PandoraLauncher)").unwrap(),
     );
-    
+
     Application::new().with_http_client(http_client).with_assets(Assets).run(|cx: &mut App| {
         let _ = cx.text_system()
             .add_fonts(vec![
                 Assets.load("fonts/inter/Inter-Regular.ttf").unwrap().unwrap(),
                 Assets.load("fonts/roboto-mono/RobotoMono-Regular.ttf").unwrap().unwrap()
             ]);
-        
+
         gpui_component::init(cx);
         gpui_component::Theme::change(ThemeMode::Dark, None, cx);
-        
+
         let theme = gpui_component::Theme::global_mut(cx);
         theme.font_family = SharedString::new_static("Inter 24pt");
         theme.scrollbar_show = gpui_component::scroll::ScrollbarShow::Always;
@@ -79,7 +79,7 @@ pub fn start(panic_message: Arc<RwLock<Option<String>>>, backend_handle: Backend
                 cx.quit();
             }
         }).detach();
-        
+
         cx.open_window(
             WindowOptions {
                 window_bounds: Some(WindowBounds::Windowed(bounds)),
@@ -102,10 +102,10 @@ pub fn start(panic_message: Arc<RwLock<Option<String>>>, backend_handle: Backend
                     modrinth,
                     accounts,
                 };
-                
+
                 {
                     let main_window = window.window_handle();
-                    
+
                     let data = data.clone();
                     let mut game_output_windows = HashMap::new();
                     let window_handle = window.window_handle();
@@ -193,9 +193,9 @@ pub fn start(panic_message: Arc<RwLock<Option<String>>>, backend_handle: Backend
                         }
                     }).detach();
                 }
-                
+
                 window.set_window_title("Pandora");
-                
+
                 let launcher_root = cx.new(|cx| LauncherRoot::new(&data, panic_message, window, cx));
                 cx.set_global(LauncherRootGlobal {
                     root: launcher_root.clone()
@@ -203,7 +203,7 @@ pub fn start(panic_message: Arc<RwLock<Option<String>>>, backend_handle: Backend
                 cx.new(|cx| Root::new(launcher_root.into(), window, cx))
             },
         ).unwrap();
-        
+
         cx.activate(true);
     });
 }

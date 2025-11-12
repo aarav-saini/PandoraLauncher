@@ -43,7 +43,7 @@ impl BackendAccountInfo {
 pub struct BackendAccount {
     pub username: Arc<str>,
     pub head: Option<Arc<[u8]>>,
-    
+
     #[serde(skip)]
     pub head_32x: Option<Arc<[u8]>>,
     #[serde(skip)]
@@ -59,20 +59,20 @@ impl BackendAccount {
             downloaded_head: false,
         }
     }
-    
+
     pub fn try_load_head_32x_from_head(&mut self) {
         let Some(head) = &self.head else {
             return;
         };
         let head = Arc::clone(head);
-        
+
         let Ok(image) = image::load_from_memory(&head) else {
             return;
         };
-        
+
         if image.width() != 32 || image.height() != 32 {
             let resized = image.resize_exact(32, 32, FilterType::Nearest);
-            
+
             let mut head_png = Vec::new();
             let mut cursor = Cursor::new(&mut head_png);
             if resized.write_to(&mut cursor, image::ImageFormat::Png).is_ok() {

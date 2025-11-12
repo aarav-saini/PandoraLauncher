@@ -41,7 +41,7 @@ impl Render for InstancesPage {
                 this.show_create_instance_modal(window, cx);
             })
         );
-        
+
         ui::page(cx, h_flex().gap_8().child("Instances").child(create_instance))
             .child(Table::new(&self.instance_table).bordered(false))
     }
@@ -99,25 +99,25 @@ impl InstancesPage {
         let error_loading_versions = Arc::new(RwLock::new(None));
         let show_snapshots = Arc::new(AtomicBool::new(false));
         let name_invalid = Arc::new(AtomicBool::new(false));
-        
+
         let instance_names: Arc<[SharedString]> = self.instances.read(cx).entries.iter().map(|(_, v)| v.read(cx).name.clone()).collect();
 
         let minecraft_version_dropdown = cx.new(|cx| {
             SelectState::new(VersionList::default(), None, window, cx).searchable(true)
         });
-        
+
         let unnamed_instance_name = SharedString::new_static("Unnamed Instance");
 
         let name_input_state = cx.new(|cx| {
             InputState::new(window, cx).placeholder(unnamed_instance_name.clone())
         });
-        
+
         let _name_input_subscription = {
             let name_invalid = Arc::clone(&name_invalid);
             let instance_names = Arc::clone(&instance_names);
             cx.subscribe_in(&name_input_state, window, move |_, input_state, _: &InputEvent, _, cx| {
                 let text = input_state.read(cx).value();
-                
+
                 if !text.as_str().is_empty() {
                     if !crate::is_single_component_path(text.as_str()) {
                         name_invalid.store(true, Ordering::Relaxed);
@@ -128,11 +128,11 @@ impl InstancesPage {
                         return;
                     }
                 }
-                
+
                 name_invalid.store(instance_names.contains(&text), Ordering::Relaxed);
             })
         };
-        
+
         self.versions.read(cx).load_if_missing();
 
         let backend_handle = self.backend_handle.clone();
@@ -227,19 +227,19 @@ impl InstancesPage {
             original: unnamed_instance_name.clone(),
             actual: unnamed_instance_name.clone()
         }));
-        
+
         window.open_dialog(cx, move |modal, window, cx| {
             let _ = &subscription;
             let _ = &_name_input_subscription;
 
             name_input_state.update(cx, |input_state, cx| {
                 let selected = minecraft_version_dropdown.read(cx).selected_value().cloned().unwrap_or(unnamed_instance_name.clone());
-            
+
                 let mut fallback_name_info = fallback_name_info.lock().unwrap();
-                
+
                 if fallback_name_info.original != selected {
                     fallback_name_info.original = selected.clone();
-                    
+
                     if instance_names.contains(&selected) {
                         for i in 1..10 {
                             let new_name = SharedString::from(format!("{}-{}", selected, i));
@@ -250,7 +250,7 @@ impl InstancesPage {
                             }
                         }
                     }
-                    
+
                     fallback_name_info.actual = selected.clone();
                     input_state.set_placeholder(selected, window, cx);
                 }
@@ -305,7 +305,7 @@ impl InstancesPage {
 
                 let show_snapshots = Arc::clone(&show_snapshots);
                 let show_snapshots_value = show_snapshots.load(Ordering::Relaxed);
-                
+
                 version_dropdown = Select::new(&minecraft_version_dropdown).title_prefix("Minecraft Version: ");
                 show_snapshots_button = Checkbox::new("show_snapshots")
                                 .checked(show_snapshots_value)
@@ -351,7 +351,7 @@ impl InstancesPage {
             let minecraft_version_dropdown = minecraft_version_dropdown.clone();
 
             let name_is_invalid = name_invalid.load(Ordering::Relaxed);
-            
+
             let content = v_flex()
                     .gap_3()
                     .child(labelled("Name", Input::new(&name_input_state)

@@ -29,7 +29,7 @@ impl <T> SearchHelper<T> {
             searched: false,
         }
     }
-    
+
     pub fn get(&self, index: usize) -> Option<&T> {
         if self.searched {
             let item_idx = if index >= self.searched_starts_with.len() {
@@ -42,7 +42,7 @@ impl <T> SearchHelper<T> {
             self.items.get(index)
         }
     }
-    
+
     pub fn iter(&self) -> Option<impl Iterator<Item = &T>> {
         if self.searched {
             Some(self.searched_starts_with.iter().chain(self.searched_contains.iter())
@@ -51,7 +51,7 @@ impl <T> SearchHelper<T> {
             None
         }
     }
-    
+
     pub fn len(&self) -> usize {
         if self.searched {
             self.searched_starts_with.len() + self.searched_contains.len()
@@ -59,18 +59,18 @@ impl <T> SearchHelper<T> {
             self.items.len()
         }
     }
-    
+
     pub fn search(&mut self, query: &str) {
         if query.is_empty() {
             self.searched = false;
             self.last_search = SharedString::default();
             return;
         }
-        
+
         if self.searched && query == self.last_search.as_str() {
             return;
         }
-        
+
         if self.searched && query.starts_with(self.last_search.as_str()) {
             self.searched_contains.retain(|i| {
                 self.lower_keys[*i].contains(query)
@@ -98,7 +98,7 @@ impl <T> SearchHelper<T> {
                 }
             }
         }
-        
+
         self.searched = true;
         self.last_search = SharedString::new(query);
     }

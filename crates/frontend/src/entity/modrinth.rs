@@ -36,7 +36,7 @@ impl FrontendModrinthData {
                     return existing.clone();
                 }
             }
-            
+
             let loading = cx.new(|_| FrontendModrinthDataState::Loading);
             this.backend_handle.blocking_send(MessageToBackend::RequestModrinth {
                 request: request.clone()
@@ -45,7 +45,7 @@ impl FrontendModrinthData {
             loading
         })
     }
-    
+
     pub fn set<C: AppContext>(entity: &Entity<Self>, request: ModrinthRequest, result: Result<ModrinthResult, ModrinthError>, keep_alive: KeepAliveHandle, cx: &mut C) {
         entity.update(cx, |this, cx| {
             this.data.get(&request).unwrap().update(cx, |value, cx| {

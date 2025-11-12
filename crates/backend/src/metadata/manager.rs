@@ -146,7 +146,7 @@ impl MetadataItem for AssetsIndexMetadata {
     fn cache_file(&self, _: &MetadataManager) -> impl AsRef<Path> + Send + Sync + 'static {
         Arc::clone(&self.cache)
     }
-    
+
     fn data_hash(&self) -> Option<Ustr> {
         Some(self.hash)
     }
@@ -178,7 +178,7 @@ impl MetadataItem for MojangJavaRuntimeComponentMetadata {
     fn cache_file(&self, _: &MetadataManager) -> impl AsRef<Path> + Send + Sync + 'static {
         Arc::clone(&self.cache)
     }
-    
+
     fn data_hash(&self) -> Option<Ustr> {
         Some(self.hash)
     }
@@ -359,17 +359,17 @@ impl MetadataManager {
                     let Ok(file) = std::fs::read(&cache_file) else {
                         return None;
                     };
-                    
+
                     let correct_hash = if let Some(expected_hash) = &expected_hash {
                         let mut hasher = Sha1::new();
                         hasher.update(&file);
                         let actual_hash = hasher.finalize();
-                        
+
                         expected_hash == &*actual_hash
                     } else {
                         true
                     };
-                    
+
                     if !correct_hash {
                         eprintln!("Sha1 mismatch for {:?}, downloading file again...", cache_file);
                         return None;
@@ -392,7 +392,7 @@ impl MetadataManager {
                     } else {
                         file_fallback = Some(Arc::new(meta));
                     }
-                }   
+                }
             }
 
             let url = &url;

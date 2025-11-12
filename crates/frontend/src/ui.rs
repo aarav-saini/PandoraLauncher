@@ -34,7 +34,7 @@ impl LauncherPage {
             LauncherPage::InstancePage(_, entity) => entity.into_any_element(),
         }
     }
-    
+
     pub fn page_type(&self) -> PageType {
         match self {
             LauncherPage::Instances(_) => PageType::Instances,
@@ -48,10 +48,10 @@ impl LauncherUI {
     pub fn new(data: &DataEntities, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let instance_page = cx.new(|cx| InstancesPage::new(data, window, cx));
         let sidebar_state = cx.new(|_| ResizableState::default());
-        
+
         let recent_instances = data.instances.read(cx).entries.iter().take(3)
             .map(|(id, ent)| (*id, ent.read(cx).name.clone())).collect();
-        
+
         let _instance_added_subscription = cx.subscribe::<_, InstanceAddedEvent>(&data.instances, |this, _, event, cx| {
             if this.recent_instances.is_full() {
                 this.recent_instances.pop();
@@ -81,7 +81,7 @@ impl LauncherUI {
             let _ = this.recent_instances.insert(0, (event.instance.id, event.instance.name.clone()));
             cx.notify();
         });
-        
+
         Self {
             data: data.clone(),
             page: LauncherPage::Instances(instance_page),
@@ -132,7 +132,7 @@ pub enum PageType {
 impl Render for LauncherUI {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let page_type = self.page.page_type();
-        
+
         let library_group = SidebarGroup::new("Library").child(SidebarMenu::new().children([
             SidebarMenuItem::new("Instances").active(page_type == PageType::Instances).on_click(cx.listener(|launcher, _, window, cx| {
                 launcher.switch_page(PageType::Instances, window, cx);
@@ -140,18 +140,18 @@ impl Render for LauncherUI {
             SidebarMenuItem::new("Mods"),
             SidebarMenuItem::new("Worlds"),
         ]));
-        
+
         let launcher_group = SidebarGroup::new("Content").child(SidebarMenu::new().children([
             SidebarMenuItem::new("Modrinth").active(page_type == PageType::Modrinth).on_click(cx.listener(|launcher, _, window, cx| {
                 launcher.switch_page(PageType::Modrinth, window, cx);
             })),
         ]));
-        
+
         let mut groups: heapless::Vec<SidebarGroup<SidebarMenu>, 3> = heapless::Vec::new();
-       
+
         let _ = groups.push(library_group);
         let _ = groups.push(launcher_group);
-        
+
         if !self.recent_instances.is_empty() {
             let recent_instances_group = SidebarGroup::new("Recent Instances").child(SidebarMenu::new().children(
                 self.recent_instances.iter().map(|(id, name)| {
@@ -164,7 +164,7 @@ impl Render for LauncherUI {
             ));
             let _ = groups.push(recent_instances_group);
         }
-        
+
         let accounts = self.data.accounts.read(cx);
         let (account_head, account_name) = if let Some(account) = &accounts.selected_account {
             let account_name = SharedString::new(account.username.clone());
@@ -177,9 +177,9 @@ impl Render for LauncherUI {
         } else {
             (gpui::img(ImageSource::Resource(Resource::Embedded("images/default_head.png".into()))), "No Account".into())
         };
-        
+
         let pandora_icon = Icon::empty().path("icons/pandora.svg");
-        
+
         let sidebar = Sidebar::left()
             .width(relative(1.))
             .border_width(px(0.))

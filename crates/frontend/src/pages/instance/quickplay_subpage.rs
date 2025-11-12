@@ -21,10 +21,10 @@ impl InstanceQuickplaySubpage {
     pub fn new(instance: &Entity<InstanceEntry>, backend_handle: BackendHandle, mut window: &mut gpui::Window, cx: &mut gpui::Context<Self>) -> Self {
         let instance = instance.read(cx);
         let instance_id = instance.id;
-        
+
         let worlds_state = Arc::clone(&instance.worlds_state);
         let servers_state = Arc::clone(&instance.servers_state);
-        
+
         let worlds_list_delegate = WorldsListDelegate {
             id: instance_id,
             name: instance.name.clone(),
@@ -32,7 +32,7 @@ impl InstanceQuickplaySubpage {
             worlds: instance.worlds.read(cx).to_vec(),
             searched: instance.worlds.read(cx).to_vec(),
         };
-        
+
         let servers_list_delegate = ServersListDelegate {
             id: instance_id,
             name: instance.name.clone(),
@@ -40,10 +40,10 @@ impl InstanceQuickplaySubpage {
             servers: instance.servers.read(cx).to_vec(),
             searched: instance.servers.read(cx).to_vec(),
         };
-        
+
         let worlds = instance.worlds.clone();
         let servers = instance.servers.clone();
-        
+
         let window2 = &mut window;
         let world_list = cx.new(move |cx| {
             cx.observe(&worlds, |list: &mut ListState<WorldsListDelegate>, worlds, cx| {
@@ -53,10 +53,10 @@ impl InstanceQuickplaySubpage {
                 delegate.searched = worlds;
                 cx.notify();
             }).detach();
-            
+
             ListState::new(worlds_list_delegate, window2, cx).selectable(false).searchable(true)
         });
-        
+
         let server_list = cx.new(move |cx| {
             cx.observe(&servers, |list: &mut ListState<ServersListDelegate>, servers, cx| {
                 let servers = servers.read(cx).to_vec();
@@ -65,10 +65,10 @@ impl InstanceQuickplaySubpage {
                 delegate.searched = servers;
                 cx.notify();
             }).detach();
-            
+
             ListState::new(servers_list_delegate, window, cx).selectable(false).searchable(true)
         });
-        
+
         Self {
             instance: instance_id,
             backend_handle,
@@ -83,17 +83,17 @@ impl InstanceQuickplaySubpage {
 impl Render for InstanceQuickplaySubpage {
     fn render(&mut self, _window: &mut gpui::Window, cx: &mut gpui::Context<Self>) -> impl gpui::IntoElement {
         let theme = cx.theme();
-        
+
         let state = self.worlds_state.load(Ordering::SeqCst);
         if state.should_send_load_request() {
             self.backend_handle.blocking_send(MessageToBackend::RequestLoadWorlds { id: self.instance });
         }
-        
+
         let state = self.servers_state.load(Ordering::SeqCst);
         if state.should_send_load_request() {
             self.backend_handle.blocking_send(MessageToBackend::RequestLoadServers { id: self.instance });
         }
-        
+
         v_flex()
             .p_4()
             .gap_4()
@@ -133,19 +133,19 @@ impl ListDelegate for WorldsListDelegate {
         cx: &mut App,
     ) -> Option<Self::Item> {
         let summary = self.searched.get(ix.row)?;
-        
+
         let icon = if let Some(png_icon) = summary.png_icon.as_ref() {
             png_render_cache::render(Arc::clone(png_icon), cx)
         } else {
             gpui::img(ImageSource::Resource(Resource::Embedded("images/default_world.png".into())))
         };
-        
+
         let description = v_flex()
             .child(SharedString::from(summary.title.clone()))
             .child(div().text_color(Hsla { h: 0.0, s: 0.0, l: 0.5, a: 1.0}).child(SharedString::from(summary.subtitle.clone())));
-        
+
         let play_icon = Icon::empty().path("icons/play.svg");
-        
+
         let id = self.id;
         let name = self.name.clone();
         let backend_handle = self.backend_handle.clone();
@@ -160,10 +160,10 @@ impl ListDelegate for WorldsListDelegate {
                 .child(icon.size_16().min_w_16().min_h_16())
                 .child(description)
             );
-        
+
         Some(item)
     }
-    
+
     fn set_selected_index(
         &mut self,
         _ix: Option<IndexPath>,
@@ -171,7 +171,7 @@ impl ListDelegate for WorldsListDelegate {
         _cx: &mut Context<ListState<Self>>,
     ) {
     }
-    
+
     fn perform_search(
         &mut self,
         query: &str,
@@ -182,7 +182,7 @@ impl ListDelegate for WorldsListDelegate {
             .filter(|w| w.title.contains(query))
             .cloned()
             .collect();
-        
+
         Task::ready(())
     }
 }
@@ -209,19 +209,19 @@ impl ListDelegate for ServersListDelegate {
         cx: &mut App,
     ) -> Option<Self::Item> {
         let summary = self.searched.get(ix.row)?;
-        
+
         let icon = if let Some(png_icon) = summary.png_icon.as_ref() {
             png_render_cache::render(Arc::clone(png_icon), cx)
         } else {
             gpui::img(ImageSource::Resource(Resource::Embedded("images/default_world.png".into())))
         };
-        
+
         let description = v_flex()
             .child(SharedString::from(summary.name.clone()))
             .child(div().text_color(Hsla { h: 0.0, s: 0.0, l: 0.5, a: 1.0}).child(SharedString::from(summary.ip.clone())));
-        
+
         let play_icon = Icon::empty().path("icons/play.svg");
-        
+
         let id = self.id;
         let name = self.name.clone();
         let backend_handle = self.backend_handle.clone();
@@ -236,10 +236,10 @@ impl ListDelegate for ServersListDelegate {
                 .child(icon.size_16().min_w_16().min_h_16())
                 .child(description)
             );
-        
+
         Some(item)
     }
-    
+
     fn set_selected_index(
         &mut self,
         _ix: Option<IndexPath>,
@@ -247,7 +247,7 @@ impl ListDelegate for ServersListDelegate {
         _cx: &mut Context<ListState<Self>>,
     ) {
     }
-    
+
     fn perform_search(
         &mut self,
         query: &str,
@@ -258,7 +258,7 @@ impl ListDelegate for ServersListDelegate {
             .filter(|w| w.name.contains(query))
             .cloned()
             .collect();
-        
+
         Task::ready(())
     }
 }

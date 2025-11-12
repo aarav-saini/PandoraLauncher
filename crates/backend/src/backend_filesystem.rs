@@ -33,18 +33,18 @@ impl BackendState {
                 let mut after_debounce_effects = AfterDebounceEffects {
                     reload_mods: HashSet::new(),
                 };
-                
+
                 let mut last_event: Option<FilesystemEvent> = None;
                 for event in events {
                     let Some(next_event) = get_simple_event(event.event) else {
                         continue;
                     };
-                    
+
                     if let Some(last_event) = last_event.take()
                         && last_event.change_or_remove_path() != next_event.change_or_remove_path() {
                             self.handle_filesystem_event(last_event, &mut after_debounce_effects).await;
                         }
-                    
+
                     last_event = Some(next_event);
                 }
                 if let Some(last_event) = last_event.take() {
@@ -63,7 +63,7 @@ impl BackendState {
             },
         }
     }
-    
+
     async fn handle_filesystem_change_event(&mut self, path: Arc<Path>, after_debounce_effects: &mut AfterDebounceEffects) {
         if let Some(target) = self.watching.get(&path).copied()
             && self.filesystem_handle_change(target, &path, after_debounce_effects).await {
@@ -76,7 +76,7 @@ impl BackendState {
             self.filesystem_handle_child_change(parent, parent_path, &path, after_debounce_effects).await;
         }
     }
-    
+
     async fn handle_filesystem_remove_event(&mut self, path: Arc<Path>, after_debounce_effects: &mut AfterDebounceEffects) {
         if let Some(target) = self.watching.remove(&path)
             && self.filesystem_handle_removed(target, &path, after_debounce_effects).await {
@@ -89,7 +89,7 @@ impl BackendState {
             self.filesystem_handle_child_removed(parent, parent_path, &path, after_debounce_effects).await;
         }
     }
-    
+
     async fn handle_filesystem_rename_event(&mut self, from: Arc<Path>, to: Arc<Path>, after_debounce_effects: &mut AfterDebounceEffects) {
         if let Some(target) = self.watching.remove(&from)
             && self.filesystem_handle_renamed(target, &from, &to, after_debounce_effects).await {
@@ -103,7 +103,7 @@ impl BackendState {
         self.handle_filesystem_remove_event(from, after_debounce_effects).await;
         self.handle_filesystem_change_event(to, after_debounce_effects).await;
     }
-    
+
     async fn handle_filesystem_event(&mut self, event: FilesystemEvent, after_debounce_effects: &mut AfterDebounceEffects) {
         match event {
             FilesystemEvent::Change(path) => self.handle_filesystem_change_event(path, after_debounce_effects).await,
@@ -111,7 +111,7 @@ impl BackendState {
             FilesystemEvent::Rename(from, to) => self.handle_filesystem_rename_event(from, to, after_debounce_effects).await,
         }
     }
-    
+
     async fn filesystem_handle_change(&mut self, target: WatchTarget, _path: &Arc<Path>, _after_debounce_effects: &mut AfterDebounceEffects) -> bool {
         match target {
             WatchTarget::ServersDat { id } => {
@@ -123,7 +123,7 @@ impl BackendState {
             _ => false
         }
     }
-    
+
     async fn filesystem_handle_removed(&mut self, target: WatchTarget, path: &Arc<Path>, _after_debounce_effects: &mut AfterDebounceEffects) -> bool {
         match target {
             WatchTarget::InstancesDir => {
@@ -176,7 +176,7 @@ impl BackendState {
             },
         }
     }
-    
+
     async fn filesystem_handle_renamed(&mut self, from_target: WatchTarget, from: &Arc<Path>, to: &Arc<Path>, _after_debounce_effects: &mut AfterDebounceEffects) -> bool {
         match from_target {
             WatchTarget::InstanceDir { id } => {
@@ -184,10 +184,10 @@ impl BackendState {
                     && from.parent() == to.parent() {
                         let old_name = instance.name;
                         instance.name = to.file_name().unwrap().to_string_lossy().into_owned().into();
-                        
+
                         self.send.send_info(format!("Instance '{}' renamed to '{}'", old_name, instance.name)).await;
                         self.send.send(instance.create_modify_message()).await;
-                        
+
                         let watching_dot_minecraft = instance.watching_dot_minecraft;
                         let watching_saves_dir = instance.watching_saves_dir;
                         let watching_server_dat = instance.watching_server_dat;
@@ -196,7 +196,7 @@ impl BackendState {
                         let saves_path = instance.saves_path.clone();
                         let server_dat_path = instance.server_dat_path.clone();
                         let mods_path = instance.mods_path.clone();
-                        
+
                         self.watch_filesystem(to, WatchTarget::InstanceDir { id }).await;
                         if watching_dot_minecraft {
                             self.watch_filesystem(&dot_minecraft_path, WatchTarget::InstanceDotMinecraftDir { id }).await;
@@ -210,7 +210,7 @@ impl BackendState {
                         if watching_mods_dir {
                             self.watch_filesystem(&mods_path, WatchTarget::InstanceModsDir { id }).await;
                         }
-                        
+
                         return true;
                     }
                 false
@@ -218,7 +218,7 @@ impl BackendState {
             _ => false
         }
     }
-    
+
     async fn filesystem_handle_child_change(&mut self, parent: WatchTarget, parent_path: &Path, path: &Arc<Path>, after_debounce_effects: &mut AfterDebounceEffects) {
         match parent {
             WatchTarget::InstancesDir => {
@@ -240,7 +240,7 @@ impl BackendState {
                         instance.mark_world_dirty(None);
                         instance.mark_servers_dirty();
                         instance.mark_mods_dirty(None);
-                        
+
                         let watching_dot_minecraft = instance.watching_dot_minecraft;
                         let watching_saves_dir = instance.watching_saves_dir;
                         let watching_server_dat = instance.watching_server_dat;
@@ -248,7 +248,7 @@ impl BackendState {
                         let saves_path = instance.saves_path.clone();
                         let server_dat_path = instance.server_dat_path.clone();
                         let mods_path = instance.mods_path.clone();
-                        
+
                         if watching_dot_minecraft {
                             self.watch_filesystem(path, WatchTarget::InstanceDotMinecraftDir { id }).await;
                         }
@@ -316,7 +316,7 @@ impl BackendState {
             },
         }
     }
-    
+
     async fn filesystem_handle_child_removed(&mut self, parent: WatchTarget, parent_path: &Path, path: &Arc<Path>, after_debounce_effects: &mut AfterDebounceEffects) {
         match parent {
             WatchTarget::InstanceDir { id } => {
@@ -349,11 +349,11 @@ impl BackendState {
             _ => {}
         }
     }
-    
+
     async fn filesystem_handle_child_renamed(&mut self, _parent: WatchTarget, _parent_path: &Path, _from: &Arc<Path>, _to: &Arc<Path>, _after_debounce_effects: &mut AfterDebounceEffects) -> bool {
         false
     }
-    
+
 }
 
 fn get_simple_event(event: notify::Event) -> Option<FilesystemEvent> {
@@ -399,7 +399,7 @@ fn get_simple_event(event: notify::Event) -> Option<FilesystemEvent> {
             if remove_kind == RemoveKind::Other {
                 return None;
             }
-    
+
             Some(FilesystemEvent::Remove(event.paths[0].clone().into()))
         },
         EventKind::Any => None,

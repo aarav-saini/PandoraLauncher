@@ -600,7 +600,7 @@ impl <'a> ListRef<'a> {
         match self.nbt.nodes.get(self.node_idx) {
             Some(NBTNode::List { type_id, children} ) => (*type_id, children),
             _ => unsafe { unreachable_unchecked() }
-        }   
+        }
     }
 
     pub fn len(&self) -> usize {
@@ -639,7 +639,7 @@ impl <'a> ListRef<'a> {
             nbt: self.nbt,
             indices: self.get_self_node().1,
             index: 0,
-        }        
+        }
     }
 }
 
@@ -661,7 +661,7 @@ impl <'a> ListRefMut<'a> {
                 (*type_id, children)
             }
             _ => unsafe { unreachable_unchecked() }
-        }   
+        }
     }
 
     fn get_self_node_mut(&mut self) -> (TagType, &mut Vec<usize>) {
@@ -670,7 +670,7 @@ impl <'a> ListRefMut<'a> {
                 (*type_id, children)
             }
             _ => unsafe { unreachable_unchecked() }
-        }   
+        }
     }
 
     fn insert_node(&mut self, node: NBTNode) -> usize {

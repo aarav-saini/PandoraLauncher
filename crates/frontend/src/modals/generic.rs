@@ -20,16 +20,16 @@ pub fn show_modal(window: &mut Window, cx: &mut App, title: SharedString, error_
                 .title(title.clone())
                 .child(v_flex().gap_3().child(error_widget));
         }
-        
+
         if modal_action.refcnt() <= 1 {
             modal_action.set_finished();
         }
-        
+
         let mut is_finishing = false;
         let mut modal_opacity = 1.0;
         if let Some(finished_at) = modal_action.get_finished_at() {
             is_finishing = true;
-            
+
             let elapsed = finished_at.elapsed().as_secs_f32();
             window.request_animation_frame();
             if elapsed >= 2.0 {
@@ -39,7 +39,7 @@ pub fn show_modal(window: &mut Window, cx: &mut App, title: SharedString, error_
                 modal_opacity = 2.0 - elapsed;
             }
         }
-        
+
         let trackers = modal_action.trackers.trackers.read().unwrap();
         let mut progress_entries = Vec::with_capacity(trackers.len());
         for tracker in &*trackers {
@@ -74,7 +74,7 @@ pub fn show_modal(window: &mut Window, cx: &mut App, title: SharedString, error_
             progress_entries.push(div().gap_3().child(SharedString::from(title)).child(progress_bar).opacity(opacity));
         }
         drop(trackers);
-        
+
         if let Some(visit_url) = &*modal_action.visit_url.read().unwrap() {
             let message = SharedString::new(Arc::clone(&visit_url.message));
             let url = Arc::clone(&visit_url.url);
@@ -108,6 +108,6 @@ pub fn show_modal(window: &mut Window, cx: &mut App, title: SharedString, error_
                     false
                 })
         }
-        
+
     });
 }

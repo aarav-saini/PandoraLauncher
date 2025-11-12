@@ -54,13 +54,13 @@ impl AuthStageWithData {
 impl AccountCredentials {
     pub fn stage(&mut self) -> AuthStageWithData {
         let now = Utc::now();
-        
+
         // Try returning access token
         if let Some(access_token) = &self.access_token && now < access_token.expiry {
             return AuthStageWithData::AccessToken(MinecraftAccessToken(Arc::clone(&access_token.token)));
         }
         self.access_token = None;
-        
+
         // Try returning XboxSecure
         if let Some(xsts) = &self.xsts && now < xsts.expiry {
             return AuthStageWithData::XboxSecure {
@@ -69,24 +69,24 @@ impl AccountCredentials {
             };
         }
         self.xsts = None;
-        
+
         // Try returning XboxLive
         if let Some(xbl) = &self.xbl && now < xbl.expiry {
             return AuthStageWithData::XboxLive(Arc::clone(&xbl.token));
         }
         self.xbl = None;
-        
+
         // Try returning MsaAccess
         if let Some(msa_access) = &self.msa_access && now < msa_access.expiry {
             return AuthStageWithData::MsaAccess(Arc::clone(&msa_access.token));
         }
         self.msa_access = None;
-        
+
         // Try returning MsaRefresh
         if let Some(msa_refresh) = &self.msa_refresh {
             return AuthStageWithData::MsaRefresh(Arc::clone(msa_refresh));
         }
-        
+
         // No valid stage, return initial stage
         AuthStageWithData::Initial
     }

@@ -28,7 +28,7 @@ impl Loader {
             Loader::Unknown => "Unknown",
         }
     }
-    
+
     pub fn from_name(str: &str) -> Self {
         match str {
             "Vanilla" | "vanilla" => Self::Vanilla,
@@ -38,7 +38,7 @@ impl Loader {
             _ => Self::Unknown
         }
     }
-    
+
     pub fn as_modrinth_loader(self) -> ModrinthLoader {
         match self {
             Loader::Vanilla => ModrinthLoader::Unknown,

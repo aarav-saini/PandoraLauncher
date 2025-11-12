@@ -34,10 +34,10 @@ impl ModrinthData {
             expiring: VecDeque::new(),
         }
     }
-    
+
     pub async fn expire(&mut self) {
         let now = Instant::now();
-        
+
         while let Some(request) = self.expiring.front_mut() {
             let entry = self.search.get_mut(request).unwrap();
             match &mut *entry {
@@ -54,7 +54,7 @@ impl ModrinthData {
                     if now > result.expiry {
                         self.search.remove(request);
                         self.expiring.pop_front();
-                        
+
                         continue;
                     }
                 },
@@ -62,12 +62,12 @@ impl ModrinthData {
             return;
         }
     }
-    
+
     pub async fn frontend_request(&mut self, modrinth_request: ModrinthRequest) {
         if self.search.contains_key(&modrinth_request) {
             return;
         }
-        
+
         let request = match &modrinth_request {
             ModrinthRequest::Search(modrinth_search_request) => {
                 self.client.get("https://api.modrinth.com/v2/search")
@@ -75,11 +75,11 @@ impl ModrinthData {
             },
             ModrinthRequest::ProjectVersions(modrinth_project_versions_request) => {
                 let url = &format!("https://api.modrinth.com/v2/project/{}/version", modrinth_project_versions_request.project_id);
-                
+
                 self.client.get(url)
             },
         };
-        
+
         let frontend_handle = self.frontend_handle.clone();
         let request_copy = modrinth_request.clone();
         let future = tokio::task::spawn(async move {
@@ -89,13 +89,13 @@ impl ModrinthData {
                     eprintln!("Error making request to modrinth: {:?}", e);
                     ModrinthError::ClientRequestError
                 })?;
-                
+
                 let status = response.status();
                 let bytes = response.bytes().await.map_err(|e| {
                     eprintln!("Error downloading response from modrinth: {:?}", e);
                     ModrinthError::ClientRequestError
                 })?;
-                
+
                 if status == StatusCode::OK {
                     let result = match request_copy_ref {
                         ModrinthRequest::Search(_) => {
@@ -111,7 +111,7 @@ impl ModrinthData {
                             versions.map(ModrinthResult::ProjectVersions)
                         },
                     };
-                    
+
                     result.map_err(|e| {
                         eprintln!("Error deserializing response from modrinth: {:?}", e);
                         ModrinthError::DeserializeError
@@ -122,7 +122,7 @@ impl ModrinthData {
                     Err(ModrinthError::NonOK(status.as_u16()))
                 }
             }.await;
-            
+
             let keep_alive = KeepAlive::new();
             frontend_handle.send(MessageToFrontend::ModrinthDataUpdated {
                 request: request_copy,

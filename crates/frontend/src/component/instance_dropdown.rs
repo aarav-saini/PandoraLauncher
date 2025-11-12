@@ -44,7 +44,7 @@ impl SelectDelegate for InstanceDropdown {
     where
         Self::Item: gpui_component::select::SelectItem<Value = V>,
         V: PartialEq
-    {   
+    {
         if let Some(searched_iter) = self.search.iter() {
             for (ix, item) in searched_iter.enumerate() {
                 if item.name.value() == value {
@@ -61,7 +61,7 @@ impl SelectDelegate for InstanceDropdown {
 
         None
     }
-    
+
     fn perform_search(
         &mut self,
         query: &str,

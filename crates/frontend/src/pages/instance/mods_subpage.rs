@@ -19,9 +19,9 @@ impl InstanceModsSubpage {
     pub fn new(instance: &Entity<InstanceEntry>, backend_handle: BackendHandle, window: &mut gpui::Window, cx: &mut gpui::Context<Self>) -> Self {
         let instance = instance.read(cx);
         let instance_id = instance.id;
-        
+
         let mods_state = Arc::clone(&instance.mods_state);
-        
+
         let mods_list_delegate = ModsListDelegate {
             id: instance_id,
             backend_handle: backend_handle.clone(),
@@ -29,9 +29,9 @@ impl InstanceModsSubpage {
             searched: instance.mods.read(cx).to_vec(),
             confirming_delete: Arc::new(AtomicUsize::new(0))
         };
-        
+
         let mods = instance.mods.clone();
-        
+
         let mod_list = cx.new(move |cx| {
             cx.observe(&mods, |list: &mut ListState<ModsListDelegate>, mods, cx| {
                 let mods = mods.read(cx).to_vec();
@@ -41,10 +41,10 @@ impl InstanceModsSubpage {
                 delegate.confirming_delete.store(0, Ordering::Release);
                 cx.notify();
             }).detach();
-            
+
             ListState::new(mods_list_delegate, window, cx).selectable(false).searchable(true)
         });
-        
+
         Self {
             instance: instance_id,
             backend_handle,
@@ -57,12 +57,12 @@ impl InstanceModsSubpage {
 impl Render for InstanceModsSubpage {
     fn render(&mut self, _window: &mut gpui::Window, cx: &mut gpui::Context<Self>) -> impl gpui::IntoElement {
         let theme = cx.theme();
-        
+
         let state = self.mods_state.load(Ordering::SeqCst);
         if state.should_send_load_request() {
             self.backend_handle.blocking_send(MessageToBackend::RequestLoadMods { id: self.instance });
         }
-        
+
         let header = h_flex()
             .gap_4()
             .mb_1()
@@ -71,7 +71,7 @@ impl Render for InstanceModsSubpage {
             .child(Button::new("update").label("Check for updates").success().compact().small())
             .child(Button::new("addmr").label("Add from Modrinth").success().compact().small())
             .child(Button::new("addfile").label("Add from file").success().compact().small());
-        
+
         v_flex()
             .p_4()
             .size_full()
@@ -103,30 +103,30 @@ impl ListDelegate for ModsListDelegate {
         cx: &mut App,
     ) -> Option<Self::Item> {
         let summary = self.searched.get(ix.row)?;
-        
+
         let icon = if let Some(png_icon) = summary.mod_summary.png_icon.as_ref() {
             png_render_cache::render(Arc::clone(png_icon), cx)
         } else {
             gpui::img(ImageSource::Resource(Resource::Embedded("images/default_mod.png".into())))
         };
-        
+
         const GRAY: Hsla = Hsla { h: 0.0, s: 0.0, l: 0.5, a: 1.0};
-        
+
         let description1 = v_flex()
             .w_1_5()
             .text_ellipsis()
             .child(SharedString::from(summary.mod_summary.name.clone()))
             .child(SharedString::from(summary.mod_summary.version_str.clone()));
-        
+
         let description2 = v_flex()
             .text_color(GRAY)
             .child(SharedString::from(summary.mod_summary.authors.clone()))
             .child(SharedString::from(summary.filename.clone()));
-        
+
         let id = self.id;
         let mod_id = summary.id;
         let element_id = summary.filename_hash;
-        
+
         let delete_button = if self.confirming_delete.load(Ordering::Relaxed) == ix.row+1 {
             Button::new(("delete", element_id)).danger().icon(IconName::Check).on_click({
                 let backend_handle = self.backend_handle.clone();
@@ -145,10 +145,10 @@ impl ListDelegate for ModsListDelegate {
                 confirming_delete.store(delete_ix, Ordering::Release);
             })
         };
-        
+
         // let cant_update_icon = Icon::default().path("icons/arrow-down-to-dot.svg");
         // let update_icon = Icon::default().path("icons/arrow-down-to-line.svg");
-        
+
         let backend_handle = self.backend_handle.clone();
         let item = ListItem::new(("item", element_id))
             .p_1()
@@ -167,10 +167,10 @@ impl ListDelegate for ModsListDelegate {
                 .child(description2)
                 .child(delete_button.absolute().right_4())
             );
-        
+
         Some(item)
     }
-    
+
     fn set_selected_index(
         &mut self,
         _ix: Option<IndexPath>,
@@ -178,7 +178,7 @@ impl ListDelegate for ModsListDelegate {
         _cx: &mut Context<ListState<Self>>,
     ) {
     }
-    
+
     fn perform_search(
         &mut self,
         query: &str,
@@ -189,7 +189,7 @@ impl ListDelegate for ModsListDelegate {
             .filter(|m| m.mod_summary.name.contains(query) || m.mod_summary.id.contains(query))
             .cloned()
             .collect();
-        
+
         Task::ready(())
     }
 }

@@ -17,7 +17,7 @@ impl KeepAlive {
             alive: Arc::new(AtomicBool::new(true))
         }
     }
-    
+
     pub fn create_handle(&self) -> KeepAliveHandle {
         KeepAliveHandle { alive: Arc::clone(&self.alive) }
     }

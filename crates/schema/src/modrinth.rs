@@ -174,7 +174,7 @@ impl ModrinthLoader {
             Self::Unknown => "Unknown",
         }
     }
-    
+
     pub fn from_name(str: &str) -> Self {
         match str {
             "Fabric" | "fabric" => Self::Fabric,

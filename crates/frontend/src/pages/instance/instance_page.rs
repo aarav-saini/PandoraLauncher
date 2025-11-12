@@ -22,16 +22,16 @@ enum InstanceSubpageType {
 impl InstancePage {
     pub fn new(instance_id: InstanceID, data: &DataEntities, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let instance = data.instances.read(cx).entries.get(&instance_id).unwrap().clone();
-        
+
         let _instance_subscription = cx.observe(&instance, |page, instance, cx| {
             let instance = instance.read(cx);
             page.title = instance.title().into();
         });
-        
+
         let subpage = InstanceSubpage::Quickplay(cx.new(|cx| {
             InstanceQuickplaySubpage::new(&instance, data.backend_handle.clone(), window, cx)
         }));
-        
+
         Self {
             backend_handle: data.backend_handle.clone(),
             title: instance.read(cx).title().into(),
@@ -40,14 +40,14 @@ impl InstancePage {
             _instance_subscription
         }
     }
-    
+
     fn set_subpage(&mut self, page_type: InstanceSubpageType, window: &mut Window, cx: &mut Context<Self>) {
         match page_type {
             InstanceSubpageType::Quickplay => {
                 if let InstanceSubpage::Quickplay(_) = self.subpage {
                     return;
                 }
-                
+
                 self.subpage = InstanceSubpage::Quickplay(cx.new(|cx| {
                     InstanceQuickplaySubpage::new(&self.instance, self.backend_handle.clone(), window, cx)
                 }));
@@ -56,7 +56,7 @@ impl InstancePage {
                 if let InstanceSubpage::Mods(_) = self.subpage {
                     return;
                 }
-                
+
                 self.subpage = InstanceSubpage::Mods(cx.new(|cx| {
                     InstanceModsSubpage::new(&self.instance, self.backend_handle.clone(), window, cx)
                 }));
@@ -71,14 +71,14 @@ impl Render for InstancePage {
             InstanceSubpage::Quickplay(_) => 0,
             InstanceSubpage::Mods(_) => 2,
         };
-        
+
         let play_icon = Icon::empty().path("icons/play.svg");
-        
+
         let instance = self.instance.read(cx);
         let id = instance.id;
         let name = instance.name.clone();
         let backend_handle = self.backend_handle.clone();
-        
+
         let button = match instance.status {
             InstanceStatus::NotRunning => {
                 Button::new("start_instance")
@@ -105,7 +105,7 @@ impl Render for InstancePage {
                     })
             },
         };
-        
+
         ui::page(cx, h_flex().gap_8().child(self.title.clone()).child(button))
             .child(TabBar::new("bar").prefix(div().w_4()).selected_index(selected_index).underline().child(Tab::new("Quickplay")).child(Tab::new("Logs")).child(Tab::new("Mods")).child(Tab::new("Resource Packs")).child(Tab::new("Worlds"))
                 .on_click(cx.listener(|page, index, window, cx| {
@@ -119,7 +119,7 @@ impl Render for InstancePage {
                     page.set_subpage(page_type, window, cx);
                 })))
             .child(self.subpage.clone().into_any_element())
-            
+
     }
 }
 
