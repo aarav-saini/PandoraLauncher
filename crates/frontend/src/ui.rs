@@ -170,8 +170,7 @@ impl Render for LauncherUI {
                     .on_click(cx.listener(|launcher, _, window, cx| {
                         launcher.switch_page(PageType::Instances, window, cx);
                     })),
-                SidebarMenuItem::new("Mods"),
-                SidebarMenuItem::new("Worlds"),
+                // SidebarMenuItem::new("Mods"),
             ]),
         );
 
