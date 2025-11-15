@@ -214,7 +214,7 @@ pub fn start_game_output(stdout: ChildStdout, sender: FrontendHandle) {
                                 }
 
                                 if let Some(text) = &text {
-                                    let mut split = text.trim_end().split("\n");
+                                    let mut split = text.split("\n");
                                     if let Some(first) = split.next() && let Some(second) = split.next() {
                                         lines.push(Arc::from(first.trim_end()));
                                         lines.push(Arc::from(second.trim_end()));
@@ -224,7 +224,7 @@ pub fn start_game_output(stdout: ChildStdout, sender: FrontendHandle) {
                                     }
                                 }
                                 if let Some(throwable) = &throwable {
-                                    let mut split = throwable.trim_end().split("\n");
+                                    let mut split = throwable.split("\n");
                                     if let Some(first) = split.next() && let Some(second) = split.next() {
                                         if let Some(text) = text.take() && lines.is_empty() {
                                             lines.push(text);
