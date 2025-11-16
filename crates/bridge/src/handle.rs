@@ -111,7 +111,7 @@ impl BackendHandle {
         serial.set(next_serial);
 
         #[cfg(debug_assertions)]
-        let _ = self.sender.try_send((message, Some(next_serial))).unwrap();
+        self.sender.try_send((message, Some(next_serial))).unwrap();
         #[cfg(not(debug_assertions))]
         let _ = self.sender.send((message, Some(next_serial)));
     }
@@ -151,7 +151,7 @@ impl FrontendHandle {
         serial.set(next_serial);
 
         #[cfg(debug_assertions)]
-        let _ = self.sender.try_send((message, Some(next_serial))).unwrap();
+        self.sender.try_send((message, Some(next_serial))).unwrap();
         #[cfg(not(debug_assertions))]
         let _ = self.sender.send((message, Some(next_serial)));
     }

@@ -1384,7 +1384,7 @@ impl LaunchContext {
         command.current_dir(&self.game_dir);
         command.stdin(Stdio::piped());
         command.stdout(Stdio::piped());
-        command.stderr(Stdio::inherit());
+        command.stderr(Stdio::piped());
 
         self.classpath.push(":");
         self.classpath.push(launch_wrapper::create_wrapper(&self.temp_dir));

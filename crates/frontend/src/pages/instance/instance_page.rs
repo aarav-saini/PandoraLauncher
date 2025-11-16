@@ -12,8 +12,8 @@ use gpui_component::{
 };
 
 use crate::{
-    entity::{DataEntities, instance::InstanceEntry},
-    pages::instance::{mods_subpage::InstanceModsSubpage, quickplay_subpage::InstanceQuickplaySubpage},
+    entity::{instance::InstanceEntry, DataEntities},
+    pages::instance::{logs_subpage::InstanceLogsSubpage, mods_subpage::InstanceModsSubpage, quickplay_subpage::InstanceQuickplaySubpage},
     root, ui,
 };
 
@@ -27,6 +27,7 @@ pub struct InstancePage {
 
 enum InstanceSubpageType {
     Quickplay,
+    Logs,
     Mods,
 }
 
@@ -64,6 +65,16 @@ impl InstancePage {
                         InstanceQuickplaySubpage::new(&self.instance, self.backend_handle.clone(), window, cx)
                     }));
             },
+            InstanceSubpageType::Logs => {
+                if let InstanceSubpage::Logs(_) = self.subpage {
+                    return;
+                }
+
+                self.subpage =
+                    InstanceSubpage::Logs(cx.new(|cx| {
+                        InstanceLogsSubpage::new(&self.instance, self.backend_handle.clone(), window, cx)
+                    }));
+            },
             InstanceSubpageType::Mods => {
                 if let InstanceSubpage::Mods(_) = self.subpage {
                     return;
@@ -81,6 +92,7 @@ impl Render for InstancePage {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let selected_index = match &self.subpage {
             InstanceSubpage::Quickplay(_) => 0,
+            InstanceSubpage::Logs(_) => 1,
             InstanceSubpage::Mods(_) => 2,
         };
 
@@ -124,6 +136,7 @@ impl Render for InstancePage {
                     .on_click(cx.listener(|page, index, window, cx| {
                         let page_type = match *index {
                             0 => InstanceSubpageType::Quickplay,
+                            1 => InstanceSubpageType::Logs,
                             2 => InstanceSubpageType::Mods,
                             _ => {
                                 return;
@@ -139,6 +152,7 @@ impl Render for InstancePage {
 #[derive(Clone)]
 pub enum InstanceSubpage {
     Quickplay(Entity<InstanceQuickplaySubpage>),
+    Logs(Entity<InstanceLogsSubpage>),
     Mods(Entity<InstanceModsSubpage>),
 }
 
@@ -146,6 +160,7 @@ impl InstanceSubpage {
     pub fn into_any_element(self) -> AnyElement {
         match self {
             Self::Quickplay(entity) => entity.into_any_element(),
+            Self::Logs(entity) => entity.into_any_element(),
             Self::Mods(entity) => entity.into_any_element(),
         }
     }

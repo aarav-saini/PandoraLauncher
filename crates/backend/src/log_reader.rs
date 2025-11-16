@@ -1,28 +1,79 @@
 use std::{
     borrow::Cow,
     io::{BufRead, BufReader},
-    process::ChildStdout,
-    sync::{Arc, atomic::AtomicUsize},
+    process::{ChildStderr, ChildStdout},
+    sync::{atomic::AtomicUsize, Arc},
 };
 
 use bridge::{
     game_output::GameOutputLogLevel, handle::FrontendHandle, keep_alive::KeepAlive, message::MessageToFrontend,
 };
 use chrono::Utc;
+use once_cell::sync::Lazy;
+use regex::Regex;
 
 static GAME_OUTPUT_ID: AtomicUsize = AtomicUsize::new(0);
+static REPLACEMENTS: Lazy<[(Regex, &'static str); 6]> = Lazy::new(|| {
+    [
+        // Access token replacements
+        (regex::Regex::new(r#"SignedJWT: [^\s]+"#).unwrap(), "SignedJWT: *****"),
+        (regex::Regex::new(r#"Session ID is [^\s)]+"#).unwrap(), "Session ID is *****"),
+        // Computer username replacements
+        (regex::Regex::new(r#"\/home\/[^/]+\/"#).unwrap(), "/home/*****/"),
+        (regex::Regex::new(r#"\/Users\/[^/]+\/"#).unwrap(), "/Users/*****/"),
+        (regex::Regex::new(r#"\\Users\\[^\\]+\\"#).unwrap(), "\\Users\\*****\\"),
+        (regex::Regex::new(r#"\\\\Users\\\\[^/]+\\\\"#).unwrap(), "\\\\Users\\\\*****\\\\"),
+    ]
+});
 
-pub fn start_game_output(stdout: ChildStdout, sender: FrontendHandle) {
-    let unknown_thread: Arc<str> = Arc::from("<unknown thread>");
+pub fn start_game_output(stdout: ChildStdout, stderr: Option<ChildStderr>, sender: FrontendHandle) {
+    let main_thread: Arc<str> = Arc::from("main");
     let empty_message: Arc<str> = Arc::from("<empty>");
 
+    let id = GAME_OUTPUT_ID.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    let keep_alive = KeepAlive::new();
+    let keep_alive_handle = keep_alive.create_handle();
+    sender.send(MessageToFrontend::CreateGameOutputWindow { id, keep_alive });
+
+    let replacements = &*REPLACEMENTS;
+
+    if let Some(stderr) = stderr {
+        let sender = sender.clone();
+        let keep_alive_handle = keep_alive_handle.clone();
+        let main_thread = main_thread.clone();
+        std::thread::spawn(move || {
+            let mut raw_text = String::new();
+            let mut reader = BufReader::new(stderr);
+
+            while keep_alive_handle.is_alive() {
+                match reader.read_line(&mut raw_text) {
+                    Err(e) => panic!("Error while reading stderr: {:?}", e),
+                    Ok(0) => {
+                        break; // EOF
+                    },
+                    Ok(_) => {
+                        let mut replaced = Cow::Borrowed(&*raw_text);
+                        for (regex, replacement) in replacements {
+                            if let Cow::Owned(new) = regex.replace_all(&replaced, *replacement) {
+                                replaced = Cow::Owned(new);
+                            }
+                        }
+
+                        sender.send(MessageToFrontend::AddGameOutput {
+                            id,
+                            time: Utc::now().timestamp_millis(),
+                            thread: main_thread.clone(),
+                            level: GameOutputLogLevel::Error,
+                            text: Arc::new([replaced.trim_end().into()]),
+                        });
+                        raw_text.clear();
+                    },
+                }
+            }
+        });
+    }
+
     std::thread::spawn(move || {
-        let id = GAME_OUTPUT_ID.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-
-        let keep_alive = KeepAlive::new();
-        let keep_alive_handle = keep_alive.create_handle();
-        sender.send(MessageToFrontend::CreateGameOutputWindow { id, keep_alive });
-
         let mut reader = quick_xml::reader::Reader::from_reader(BufReader::new(stdout));
 
         let mut buf = Vec::new();
@@ -51,18 +102,8 @@ pub fn start_game_output(stdout: ChildStdout, sender: FrontendHandle) {
         let mut last_throwable: Option<Arc<str>> = None;
 
         let mut raw_text = String::new();
-        let mut read_raw_text = false;
-
-        let replacements = [
-            // Access token replacements
-            (regex::Regex::new(r#"SignedJWT: [^\s]+"#).unwrap(), "SignedJWT: *****"),
-            (regex::Regex::new(r#"Session ID is token: [^\s)]+"#).unwrap(), "Session ID is token: *****"),
-            // Computer username replacements
-            (regex::Regex::new(r#"\/home\/[^/]+\/"#).unwrap(), "/home/*****/"),
-            (regex::Regex::new(r#"\/Users\/[^/]+\/"#).unwrap(), "/Users/*****/"),
-            (regex::Regex::new(r#"\\Users\\[^\\]+\\"#).unwrap(), "\\Users\\*****\\"),
-            (regex::Regex::new(r#"\\\\Users\\\\[^/]+\\\\"#).unwrap(), "\\\\Users\\\\*****\\\\"),
-        ];
+        let mut raw_text_bytes = Vec::new();
+        let mut raw_log_level = GameOutputLogLevel::Info;
 
         while keep_alive_handle.is_alive() {
             buf.clear();
@@ -72,8 +113,8 @@ pub fn start_game_output(stdout: ChildStdout, sender: FrontendHandle) {
                     sender.send(MessageToFrontend::AddGameOutput {
                         id,
                         time: chrono::Utc::now().timestamp_millis(),
-                        thread: Arc::from("main"),
-                        level: GameOutputLogLevel::Info,
+                        thread: main_thread.clone(),
+                        level: raw_log_level,
                         text: Arc::new([Arc::from("<end of output>")]),
                     });
                     break;
@@ -84,7 +125,7 @@ pub fn start_game_output(stdout: ChildStdout, sender: FrontendHandle) {
                             match e.name().as_ref() {
                                 b"log4j:Event" => {
                                     let mut timestamp = 0;
-                                    let mut thread = unknown_thread.clone();
+                                    let mut thread = main_thread.clone();
                                     let mut level = GameOutputLogLevel::Other;
                                     for attribute in e.attributes() {
                                         let Ok(attribute) = attribute else {
@@ -192,7 +233,7 @@ pub fn start_game_output(stdout: ChildStdout, sender: FrontendHandle) {
 
                                 if let Some(text) = text.as_mut() {
                                     let mut replaced = Cow::Borrowed(&**text);
-                                    for (regex, replacement) in &replacements {
+                                    for (regex, replacement) in replacements {
                                         if let Cow::Owned(new) = regex.replace_all(&replaced, *replacement) {
                                             replaced = Cow::Owned(new);
                                         }
@@ -203,7 +244,7 @@ pub fn start_game_output(stdout: ChildStdout, sender: FrontendHandle) {
                                 }
                                 if let Some(throwable) = throwable.as_mut() {
                                     let mut replaced = Cow::Borrowed(&**throwable);
-                                    for (regex, replacement) in &replacements {
+                                    for (regex, replacement) in replacements {
                                         if let Cow::Owned(new) = regex.replace_all(&replaced, *replacement) {
                                             replaced = Cow::Owned(new);
                                         }
@@ -317,14 +358,64 @@ pub fn start_game_output(stdout: ChildStdout, sender: FrontendHandle) {
 
                     if stack.is_empty() {
                         // We got text at the root level, fallback to writing raw text output
-                        read_raw_text = true;
+                        let mut in_tag = false;
+
+                        if raw_log_level == GameOutputLogLevel::Info && read_raw.contains("Minecraft Crash Report") {
+                            raw_log_level = GameOutputLogLevel::Fatal;
+                        }
+
                         raw_text.push_str(&read_raw);
                         if reader.buffer_position()+1 == reader.stream().offset() {
-                            raw_text.push('<');
+                            in_tag = true;
                         } else {
                             debug_assert_eq!(reader.buffer_position(), reader.stream().offset());
                         }
-                        break;
+
+                        let mut read_line_remainder = true;
+
+                        let end_trimmed = raw_text.trim_ascii_end();
+                        if end_trimmed.len() < raw_text.len() {
+                            read_line_remainder = !raw_text[end_trimmed.len()..].contains('\n');
+                        }
+
+                        if read_line_remainder {
+                            if in_tag {
+                                raw_text.push('<');
+                            }
+                            let _ = reader.stream().read_line(&mut raw_text);
+                        }
+
+                        if in_tag && read_line_remainder {
+                            raw_text_bytes.clear();
+                            let _ = reader.stream().read_until('<' as u8, &mut raw_text_bytes);
+                            if let Ok(str) = str::from_utf8(&raw_text_bytes) {
+                                raw_text.push_str(str);
+                            }
+                        }
+
+                        for line in raw_text.split("\n") {
+                            let trimmed = line.trim_ascii();
+
+                            if trimmed.is_empty() {
+                                continue;
+                            }
+
+                            let mut replaced = Cow::Borrowed(trimmed);
+                            for (regex, replacement) in replacements {
+                                if let Cow::Owned(new) = regex.replace_all(&replaced, *replacement) {
+                                    replaced = Cow::Owned(new);
+                                }
+                            }
+
+                            sender.send(MessageToFrontend::AddGameOutput {
+                                id,
+                                time: Utc::now().timestamp_millis(),
+                                thread: main_thread.clone(),
+                                level: raw_log_level,
+                                text: Arc::new([replaced.into()]),
+                            });
+                        }
+                        raw_text.clear();
                     } else if cfg!(debug_assertions) {
                         panic!("Don't know how to handle raw text on {:?}", stack.last());
                     }
@@ -334,60 +425,6 @@ pub fn start_game_output(stdout: ChildStdout, sender: FrontendHandle) {
                         panic!("Unknown event {:?}", e);
                     }
                 },
-            }
-        }
-        if read_raw_text {
-            let level = if raw_text.contains("Minecraft Crash Report") {
-                GameOutputLogLevel::Fatal
-            } else {
-                GameOutputLogLevel::Info
-            };
-
-            let mut last: Option<&str> = None;
-            for split in raw_text.split("\n") {
-                if let Some(last) = last {
-                    sender.send(MessageToFrontend::AddGameOutput {
-                        id,
-                        time: Utc::now().timestamp_millis(),
-                        thread: unknown_thread.clone(),
-                        level,
-                        text: Arc::new([last.trim_end().into()]),
-                    });
-                }
-                last = Some(split);
-            }
-            if let Some(last) = last {
-                raw_text = last.to_string();
-            } else {
-                raw_text.clear();
-            }
-
-            let mut stream = reader.stream();
-            let stream = stream.get_mut();
-            while keep_alive_handle.is_alive() {
-                match stream.read_line(&mut raw_text) {
-                    Err(e) => panic!("Error while reading raw: {:?}", e),
-                    Ok(0) => {
-                        break; // EOF
-                    },
-                    Ok(_) => {
-                        let mut replaced = Cow::Borrowed(&*raw_text);
-                        for (regex, replacement) in &replacements {
-                            if let Cow::Owned(new) = regex.replace_all(&replaced, *replacement) {
-                                replaced = Cow::Owned(new);
-                            }
-                        }
-
-                        sender.send(MessageToFrontend::AddGameOutput {
-                            id,
-                            time: Utc::now().timestamp_millis(),
-                            thread: unknown_thread.clone(),
-                            level,
-                            text: Arc::new([replaced.trim_end().into()]),
-                        });
-                        raw_text.clear();
-                    },
-                }
             }
         }
     });

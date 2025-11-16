@@ -270,7 +270,7 @@ impl BackendState {
                     match result {
                         Ok(mut child) => {
                             if let Some(stdout) = child.stdout.take() {
-                                log_reader::start_game_output(stdout, self.send.clone());
+                                log_reader::start_game_output(stdout, child.stderr.take(), self.send.clone());
                             }
                             instance.child = Some(child);
                         },

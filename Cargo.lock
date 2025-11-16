@@ -568,6 +568,7 @@ dependencies = [
  "nbt",
  "notify 8.2.0",
  "notify-debouncer-full",
+ "once_cell",
  "os_info",
  "quick-xml 0.38.3",
  "regex",
