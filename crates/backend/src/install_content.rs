@@ -5,6 +5,7 @@ use bridge::{
     message::MessageToFrontend,
     modal_action::{ModalAction, ProgressTracker, ProgressTrackerFinishType},
 };
+use reqwest::StatusCode;
 use schema::content::ContentSource;
 use sha1::{Digest, Sha1};
 use tokio::io::AsyncWriteExt;
@@ -15,6 +16,8 @@ use crate::BackendState;
 pub enum ContentInstallError {
     #[error("Failed to download remote content")]
     Reqwest(#[from] reqwest::Error),
+    #[error("Remote server returned non-200 status code: {0}")]
+    NotOK(StatusCode),
     #[error("Downloaded file had the wrong size")]
     WrongFilesize,
     #[error("Downloaded file had the wrong hash")]
@@ -98,7 +101,11 @@ impl BackendState {
                             });
                         }
 
-                        let response = self.http_client.get(&**url).send().await?;
+                        let response = self.redirecting_http_client.get(&**url).send().await?;
+
+                        if response.status() != StatusCode::OK {
+                            return Err(ContentInstallError::NotOK(response.status()));
+                        }
 
                         let mut file = tokio::fs::File::create(&path).await?;
 

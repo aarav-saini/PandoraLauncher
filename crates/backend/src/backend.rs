@@ -38,6 +38,12 @@ pub fn start(send: FrontendHandle, self_handle: BackendHandle, recv: BackendRece
         .build()
         .unwrap();
 
+    let redirecting_http_client = reqwest::ClientBuilder::new()
+        .use_rustls_tls()
+        .user_agent("PandoraLauncher/0.1.0 (https://github.com/Moulberry/PandoraLauncher)")
+        .build()
+        .unwrap();
+
     let base_dirs = directories::BaseDirs::new().unwrap();
     let data_dir = base_dirs.data_dir();
     let launcher_dir = data_dir.join("PandoraLauncher");
@@ -76,6 +82,7 @@ pub fn start(send: FrontendHandle, self_handle: BackendHandle, recv: BackendRece
         self_handle,
         send: send.clone(),
         http_client,
+        redirecting_http_client,
         meta: Arc::clone(&meta),
         instance_state: Arc::new(RwLock::new(state_instances)),
         file_watching: Arc::new(RwLock::new(state_file_watching)),
@@ -120,6 +127,7 @@ pub struct BackendState {
     pub self_handle: BackendHandle,
     pub send: FrontendHandle,
     pub http_client: reqwest::Client,
+    pub redirecting_http_client: reqwest::Client,
     pub meta: Arc<MetadataManager>,
     pub instance_state: Arc<RwLock<BackendStateInstances>>,
     pub file_watching: Arc<RwLock<BackendStateFileWatching>>,
