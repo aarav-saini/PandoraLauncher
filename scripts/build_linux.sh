@@ -5,6 +5,8 @@ if [ -z "$1" ]; then
     exit 1
 fi
 
+version=${1#v}
+
 sudo apt-get update --yes && sudo apt-get install --yes libssl-dev libdbus-1-dev libx11-xcb1 libxkbcommon-x11-dev pkg-config
 cargo build --release --target x86_64-unknown-linux-gnu
 strip target/x86_64-unknown-linux-gnu/release/pandora_launcher
@@ -17,11 +19,11 @@ cargo packager --config '{'\
 '  "outDir": "./dist",'\
 '  "formats": ["deb", "appimage"],'\
 '  "productName": "Pandora Launcher",'\
-'  "version": "'"$1"'",'\
+'  "version": "'"$version"'",'\
 '  "identifier": "com.moulberry.pandoralauncher",'\
 '  "resources": [],'\
 '  "binaries": [{ "path": "PandoraLauncher-Linux", "main": true }],'\
 '  "icons": ["package/icon_32x32.png"]'\
 '}'
 
-mv dist/PandoraLauncher-Linux PandoraLauncher-Linux-$1-x86_64
+mv dist/PandoraLauncher-Linux PandoraLauncher-Linux-$version-x86_64

@@ -1,5 +1,13 @@
 set -e
 
+if [ -z "$1" ]; then
+    echo "Missing version argument"
+    exit 1
+fi
+
+version=${1#v}
+
+
 cargo build --release --target aarch64-apple-darwin
 cargo build --release --target x86_64-apple-darwin
 
@@ -15,11 +23,11 @@ cargo packager --config '{'\
 '  "name": "pandora-launcher",'\
 '  "outDir": "./dist",'\
 '  "productName": "Pandora Launcher",'\
-'  "version": "'"$1"'",'\
+'  "version": "'"$version"'",'\
 '  "identifier": "com.moulberry.pandoralauncher",'\
 '  "resources": [],'\
 '  "binaries": [{ "path": "PandoraLauncher-macOS", "main": true }],'\
 '  "icons": ["package/icon_32x32.png"]'\
 '}'
 
-mv dist/PandoraLauncher-macOS PandoraLauncher-macOS-$1-Universal
+mv dist/PandoraLauncher-macOS PandoraLauncher-macOS-$version-Universal
