@@ -85,11 +85,21 @@ impl ModrinthSearchPage {
         self.reload(cx);
     }
 
-    fn set_project_type(&mut self, project_type: ModrinthProjectType, cx: &mut Context<Self>) {
+    fn set_project_type(&mut self, project_type: ModrinthProjectType, window: &mut Window, cx: &mut Context<Self>) {
         if self.project_type == project_type {
             return;
         }
         self.project_type = project_type;
+        self.search_state.update(cx, |state, cx| {
+            let placeholder = match project_type {
+                ModrinthProjectType::Mod => "Search mods...",
+                ModrinthProjectType::Modpack => "Search modpacks...",
+                ModrinthProjectType::Resourcepack => "Search resourcepacks...",
+                ModrinthProjectType::Shader => "Search shaders...",
+                ModrinthProjectType::Other => "Search...",
+            };
+            state.set_placeholder(placeholder, window, cx)
+        });
         self.reload(cx);
     }
 
@@ -433,11 +443,11 @@ impl Render for ModrinthSearchPage {
                     .selected(self.project_type == ModrinthProjectType::Resourcepack),
             )
             .child(Button::new("shaders").label("Shaders").selected(self.project_type == ModrinthProjectType::Shader))
-            .on_click(cx.listener(|page, clicked: &Vec<usize>, _, cx| match clicked[0] {
-                0 => page.set_project_type(ModrinthProjectType::Mod, cx),
-                1 => page.set_project_type(ModrinthProjectType::Modpack, cx),
-                2 => page.set_project_type(ModrinthProjectType::Resourcepack, cx),
-                3 => page.set_project_type(ModrinthProjectType::Shader, cx),
+            .on_click(cx.listener(|page, clicked: &Vec<usize>, window, cx| match clicked[0] {
+                0 => page.set_project_type(ModrinthProjectType::Mod, window, cx),
+                1 => page.set_project_type(ModrinthProjectType::Modpack, window, cx),
+                2 => page.set_project_type(ModrinthProjectType::Resourcepack, window, cx),
+                3 => page.set_project_type(ModrinthProjectType::Shader, window, cx),
                 _ => {},
             }));
 
