@@ -19,6 +19,7 @@ mod install_content;
 mod instance;
 mod launch;
 mod launch_wrapper;
+mod lockfile;
 mod log_reader;
 mod metadata;
 mod mod_metadata;

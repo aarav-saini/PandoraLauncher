@@ -8,7 +8,7 @@ use schema::{content::ContentSource, loader::Loader};
 use sha1::{Digest, Sha1};
 use tokio::io::AsyncWriteExt;
 
-use crate::{metadata::items::MinecraftVersionManifestMetadataItem, BackendState};
+use crate::{lockfile::Lockfile, metadata::items::MinecraftVersionManifestMetadataItem, BackendState};
 
 #[derive(thiserror::Error, Debug)]
 pub enum ContentInstallError {
@@ -84,28 +84,33 @@ impl BackendState {
                             path.set_extension(extension);
                         }
 
-                        let valid_hash_on_disk = {
+                        let mod_summary = {
                             let path = path.clone();
+                            let mod_metadata_manager = self.mod_metadata_manager.clone();
+                            let tracker = tracker.clone();
                             tokio::task::spawn_blocking(move || {
-                                crate::check_sha1_hash(&path, hash).unwrap_or(false)
-                            }).await.unwrap()
+                                let valid_hash_on_disk = crate::check_sha1_hash(&path, hash).unwrap_or(false);
+
+                                tracker.set_count(2);
+                                tracker.notify();
+
+                                if !valid_hash_on_disk {
+                                    std::fs::write(&path, &data)?;
+                                }
+
+                                std::io::Result::Ok(mod_metadata_manager.get_bytes(&data))
+                            }).await.unwrap()?
                         };
-
-                        tracker.set_count(2);
-                        tracker.notify();
-
-                        if !valid_hash_on_disk {
-                            tokio::fs::write(&path, &data).await?;
-                        }
 
                         tracker.set_count(3);
                         tracker.notify();
+
                         return Ok(InstallFromContentLibrary {
                             from: path,
                             replace: content_file.replace_old.clone(),
                             hash: hash.into(),
                             content_file: content_file.clone(),
-                            mod_summary: self.mod_metadata_manager.get_bytes(&data)
+                            mod_summary,
                         });
                     },
                 }
@@ -201,7 +206,6 @@ impl BackendState {
     }
 
     async fn download_file_into_library_inner(&self, modal_action: &ModalAction, content_path: ContentInstallPath, url: &Arc<str>, sha1: &Arc<str>, size: usize, semaphore: &tokio::sync::Semaphore) -> Result<(PathBuf, [u8; 20], Option<Arc<ModSummary>>), ContentInstallError> {
-        let _permit = semaphore.acquire().await.unwrap();
 
         let mut expected_hash = [0u8; 20];
         let Ok(_) = hex::decode_to_slice(&**sha1, &mut expected_hash) else {
@@ -219,6 +223,10 @@ impl BackendState {
         if let Some(extension) = content_path.extension() {
             path.set_extension(extension);
         }
+
+        let lockfile = Lockfile::create(path.with_added_extension("lock").into()).await;
+
+        let _permit = semaphore.acquire().await.unwrap();
 
         let file_name = match &content_path {
             ContentInstallPath::Raw(path) => path.file_name(),
@@ -296,6 +304,8 @@ impl BackendState {
                 unreachable!();
             }
         }
+
+        drop(lockfile);
 
         let summary = self.mod_metadata_manager.get_path(&path);
         Ok((path, expected_hash, summary))
