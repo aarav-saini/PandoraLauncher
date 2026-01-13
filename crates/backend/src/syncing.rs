@@ -56,6 +56,14 @@ pub fn apply_to_instance(sync_targets: EnumSet<SyncTarget>, directories: &Launch
                         }
                     }
                 },
+                SyncTarget::Hotbars => {
+                    if let Some(latest) = find_latest("hotbar.nbt", directories) {
+                        let target = dot_minecraft.join("hotbar.nbt");
+                        if latest != target {
+                            _ = std::fs::copy(latest, target);
+                        }
+                    }
+                },
                 _ => {
                     eprintln!("Don't know how to sync {target:?}")
                 }

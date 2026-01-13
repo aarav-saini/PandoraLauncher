@@ -128,6 +128,7 @@ impl Render for SyncingPage {
             .child(self.create_entry("options", "Sync options.txt", SyncTarget::Options, warning, info, cx))
             .child(self.create_entry("servers", "Sync servers.dat", SyncTarget::Servers, warning, info, cx))
             .child(self.create_entry("commands", "Sync command_history.txt", SyncTarget::Commands, warning, info, cx))
+            .child(self.create_entry("hotbars", "Sync hotbar.nbt", SyncTarget::Hotbars, warning, info, cx))
             .child(div().border_b_1().border_color(cx.theme().border).text_lg().child("Folders"))
             .child(self.create_entry("saves", "Sync saves folder", SyncTarget::Saves, warning, info, cx))
             .child(self.create_entry("config", "Sync config folder", SyncTarget::Config, warning, info, cx))

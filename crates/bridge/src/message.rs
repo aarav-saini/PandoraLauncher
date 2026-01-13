@@ -195,19 +195,20 @@ pub struct SyncState {
 
 #[derive(Debug, enum_map::Enum, EnumSetType, strum::EnumIter)]
 pub enum SyncTarget {
-    Options,
-    Servers,
-    Commands,
-    Saves,
-    Config,
-    Screenshots,
-    Resourcepacks,
-    Shaderpacks,
-    Flashback,
-    DistantHorizons,
-    Voxy,
-    XaerosMinimap,
-    Bobby,
+    Options = 0,
+    Servers = 1,
+    Commands = 2,
+    Hotbars = 13,
+    Saves = 3,
+    Config = 4,
+    Screenshots = 5,
+    Resourcepacks = 6,
+    Shaderpacks = 7,
+    Flashback = 8,
+    DistantHorizons = 9,
+    Voxy = 10,
+    XaerosMinimap = 11,
+    Bobby = 12,
 }
 
 impl SyncTarget {
@@ -216,6 +217,7 @@ impl SyncTarget {
             SyncTarget::Options => None,
             SyncTarget::Servers => None,
             SyncTarget::Commands => None,
+            SyncTarget::Hotbars => None,
             SyncTarget::Saves => Some("saves"),
             SyncTarget::Config => Some("config"),
             SyncTarget::Screenshots => Some("screenshots"),
