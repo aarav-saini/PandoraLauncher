@@ -219,14 +219,14 @@ impl Render for InstanceSettingsSubpage {
             SharedString::new_static("<unset>")
         };
 
-        let content = v_flex()
-            .p_4()
+        let basic_content = v_flex()
             .gap_4()
+            .size_full()
             .child(v_flex()
                 .child("Instance name")
                 .child(h_flex()
                     .gap_2()
-                    .child(Input::new(&self.new_name_input_state).w_64())
+                    .child(Input::new(&self.new_name_input_state))
                     .when(self.new_name_change_state != NewNameChangeState::NoChange, |this| {
                         if self.new_name_change_state == NewNameChangeState::InvalidName {
                             this.child("Invalid name")
@@ -247,7 +247,11 @@ impl Render for InstanceSettingsSubpage {
                         }
                     })
                 )
-            )
+            );
+
+        let runtime_content = v_flex()
+            .gap_4()
+            .size_full()
             .child(v_flex()
                 .gap_1()
                 .child(Checkbox::new("memory").label("Set Memory").checked(memory_override_enabled).on_click(cx.listener(|page, value, _, cx| {
@@ -262,11 +266,11 @@ impl Render for InstanceSettingsSubpage {
                 })))
                 .child(h_flex()
                     .gap_1()
-                    .child(NumberInput::new(&self.memory_min_input_state).max_w_64().small().suffix("MiB").disabled(!memory_override_enabled))
+                    .child(NumberInput::new(&self.memory_min_input_state).small().suffix("MiB").disabled(!memory_override_enabled))
                     .child("Min"))
                 .child(h_flex()
                     .gap_1()
-                    .child(NumberInput::new(&self.memory_max_input_state).max_w_64().small().suffix("MiB").disabled(!memory_override_enabled))
+                    .child(NumberInput::new(&self.memory_max_input_state).small().suffix("MiB").disabled(!memory_override_enabled))
                     .child("Max"))
                 )
             .child(v_flex()
@@ -281,7 +285,7 @@ impl Render for InstanceSettingsSubpage {
                         cx.notify();
                     }
                 })))
-                .child(div().max_w_64().child(Input::new(&self.jvm_flags_input_state).disabled(!jvm_flags_enabled)))
+                .child(Input::new(&self.jvm_flags_input_state).disabled(!jvm_flags_enabled))
             )
             .child(v_flex()
                 .gap_1()
@@ -295,7 +299,7 @@ impl Render for InstanceSettingsSubpage {
                         cx.notify();
                     }
                 })))
-                .child(div().max_w_64().child(Button::new("select_jvm_binary").success().label(jvm_binary_label).disabled(!jvm_binary_enabled).on_click(cx.listener(|this, _, window, cx| {
+                .child(Button::new("select_jvm_binary").success().label(jvm_binary_label).disabled(!jvm_binary_enabled).on_click(cx.listener(|this, _, window, cx| {
                     let receiver = cx.prompt_for_paths(PathPromptOptions {
                         files: true,
                         directories: false,
@@ -331,9 +335,13 @@ impl Render for InstanceSettingsSubpage {
                         });
                     });
                     this._select_file_task = add_from_file_task;
-                }))))
-            )
-            .child(Button::new("delete").max_w_64().label("Delete this instance").danger().on_click({
+                })))
+            );
+
+        let danger_content = v_flex()
+            .gap_4()
+            .size_full()
+            .child(Button::new("delete").label("Delete this instance").danger().on_click({
                 let instance = self.instance.clone();
                 let backend_handle = self.backend_handle.clone();
                 move |click: &ClickEvent, window, cx| {
@@ -352,6 +360,17 @@ impl Render for InstanceSettingsSubpage {
                 }
             }));
 
+        let sections = h_flex()
+            .size_full()
+            .justify_evenly()
+            .p_4()
+            .gap_4()
+            .child(basic_content)
+            .child(div().bg(cx.theme().border).h_full().w_0p5())
+            .child(runtime_content)
+            .child(div().bg(cx.theme().border).h_full().w_0p5())
+            .child(danger_content);
+
         v_flex()
             .p_4()
             .size_full()
@@ -361,7 +380,7 @@ impl Render for InstanceSettingsSubpage {
                 .border_1()
                 .rounded(theme.radius)
                 .border_color(theme.border)
-                .child(content)
+                .child(sections)
             )
     }
 }
