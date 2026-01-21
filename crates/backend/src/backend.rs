@@ -33,7 +33,8 @@ pub fn start(launcher_dir: PathBuf, send: FrontendHandle, self_handle: BackendHa
         .expect("Failed to initialize Tokio runtime");
 
     let http_client = reqwest::ClientBuilder::new()
-        // .connect_timeout(Duration::from_secs(5))
+        .connect_timeout(Duration::from_secs(15))
+        .read_timeout(Duration::from_secs(15))
         .redirect(Policy::none())
         .use_rustls_tls()
         .user_agent("PandoraLauncher/0.1.0 (https://github.com/Moulberry/PandoraLauncher)")

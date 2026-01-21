@@ -308,7 +308,7 @@ impl MetadataManager {
             }
 
             let mut result: Result<Arc<I::T>, MetaLoadError> = async move {
-                let response = request.timeout(std::time::Duration::from_secs(5)).send().await?;
+                let response = request.send().await?;
 
                 let status = response.status();
                 if status != StatusCode::OK {
