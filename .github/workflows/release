@@ -1,0 +1,56 @@
+# .github/workflows/release.yml
+name: Build and Release Rust App
+
+on:
+  push:
+    tags:
+      - 'v*'   # Runs when you push tags like v1.0.0, v2.3.4, etc.
+
+jobs:
+  build-and-release:
+    name: Build and Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo build artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            target
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Build release binary
+        run: cargo build --release
+
+      # Adjust the binary path if your crate name is different
+      - name: Package binary
+        run: |
+          mkdir -p dist
+          # Replace `myapp` with your actual binary name from Cargo.toml [[bin]] or package name
+          cp target/release/myapp dist/
+          cd dist
+          tar czf myapp-${{ github.ref_name }}-linux-x86_64.tar.gz myapp
+        shell: bash
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          files: |
+            dist/myapp-${{ github.ref_name }}-linux-x86_64.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
